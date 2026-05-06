@@ -96,7 +96,8 @@ data class BookingItem(
     val address: String?,
     val status: String,   // "pending" | "confirmed" | "rejected"
     val created_at: String,
-    val post_title: String
+    val post_title: String,
+    val has_contract: Int = 0  // 1 nếu đã tạo hợp đồng
 )
 
 data class BookingListResponse(
@@ -237,6 +238,49 @@ data class SendNoticeResponse(
     val notice_id: Int? = null,
     val sent_to: Int? = null,
     val message: String? = null
+)
+
+// ── Tenant Management ─────────────────────────────────────────────────────
+data class TenantItem(
+    val contract_id: Int,
+    val tenant_id: String,
+    val tenant_name: String,
+    val tenant_phone: String,
+    val tenant_id_card: String,
+    val tenant_address: String?,
+    val room_name: String?,
+    val room_address: String?,
+    val start_date: String,
+    val duration_months: Int,
+    val rent_price: Double,
+    val contract_status: String,
+    val avatar: String?,
+    val email: String?,
+    val dob: String?,
+    val unpaid_count: Int,
+    val paid_count: Int,
+    val member_count: Int = 0
+)
+
+data class TenantListResponse(
+    val status: String,
+    val tenants: List<TenantItem>? = null
+)
+
+// ── Room Members ──────────────────────────────────────────────────────────
+data class RoomMember(
+    val id: Int,
+    val full_name: String,
+    val phone: String = "",
+    val id_card: String = "",
+    val dob: String = "",
+    val note: String = "",
+    val created_at: String = ""
+)
+
+data class RoomMemberListResponse(
+    val status: String,
+    val members: List<RoomMember> = emptyList()
 )
 
 // ── Common ────────────────────────────────────────────────────────────────

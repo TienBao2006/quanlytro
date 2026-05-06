@@ -6,7 +6,8 @@ import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.converter.scalars.ScalarsConverterFactory
 
 object RetrofitClient {
-    private const val BASE_URL = "http://10.0.2.2/quanlytro/"
+   private const val BASE_URL = "http://10.0.2.2/quanlytro/"
+//private const val BASE_URL = "http://192.168.88.50:3000/quanlyto/"
 
     val instance: ApiService by lazy {
         val gson = GsonBuilder().setLenient().create()

@@ -358,6 +358,42 @@ interface ApiService {
         @Field("action")      action: String  // "accept" | "reject"
     ): Call<SimpleResponse>
 
+    // ── Tenant Management ─────────────────────────────────────────────────
+    @GET("get_tenants.php")
+    fun getTenants(@Query("landlord_id") landlordId: String): Call<TenantListResponse>
+
+    @FormUrlEncoded
+    @POST("remind_payment.php")
+    fun remindPayment(
+        @Field("contract_id") contractId: Int,
+        @Field("landlord_id") landlordId: String,
+        @Field("tenant_id")   tenantId: String,
+        @Field("message")     message: String = ""
+    ): Call<SimpleResponse>
+
+    // ── Room Members ──────────────────────────────────────────────────────
+    @GET("get_room_members.php")
+    fun getRoomMembers(@Query("contract_id") contractId: Int): Call<RoomMemberListResponse>
+
+    @FormUrlEncoded
+    @POST("add_room_member.php")
+    fun addRoomMember(
+        @Field("contract_id") contractId: Int,
+        @Field("landlord_id") landlordId: String,
+        @Field("full_name")   fullName: String,
+        @Field("phone")       phone: String,
+        @Field("id_card")     idCard: String,
+        @Field("dob")         dob: String,
+        @Field("note")        note: String
+    ): Call<SimpleResponse>
+
+    @FormUrlEncoded
+    @POST("delete_room_member.php")
+    fun deleteRoomMember(
+        @Field("member_id")   memberId: Int,
+        @Field("landlord_id") landlordId: String
+    ): Call<SimpleResponse>
+
     @FormUrlEncoded
     @POST("booking.php")
     fun createBooking(

@@ -231,7 +231,8 @@ fun AppNavigation() {
                 onInvoiceClick = { navController.navigate("invoice_manage") },
                 onUtilityClick = { navController.navigate("utility_stats") },
                 onNotificationClick = { navController.navigate("notifications") },
-                onNoticeClick = { navController.navigate("landlord_notice") }
+                onNoticeClick = { navController.navigate("landlord_notice") },
+                onTenantManageClick = { navController.navigate("tenant_manage") }
             )
         }
         composable("booking_manage") {
@@ -308,6 +309,15 @@ fun AppNavigation() {
         }
         composable("landlord_notice") {
             LandlordNoticeScreen(onBackClick = { navController.popBackStack() })
+        }
+        composable("tenant_manage") {
+            com.example.quanlytro.screen.TenantManageScreen(
+                onBackClick = { navController.popBackStack() },
+                onChatClick = { otherId, otherName ->
+                    val encodedName = URLEncoder.encode(otherName, StandardCharsets.UTF_8.toString())
+                    navController.navigate("chat/$otherId/$encodedName")
+                }
+            )
         }
     }
 }

@@ -24,8 +24,21 @@ $result = $conn->query("
            p.title, p.location, p.price, p.area,
            p.description, p.amenities, p.map_url,
            p.contact_name, p.contact_phone, p.images, p.created_at,
-           p.available, p.available_rooms,
-           COALESCE(p.total_rooms, p.available_rooms, 1) AS total_rooms
+           COALESCE(p.total_rooms, p.available_rooms, 1) AS total_rooms,
+           (
+               COALESCE(p.total_rooms, p.available_rooms, 1) - (
+                   SELECT COUNT(*) FROM contracts c
+                   WHERE c.post_id = p.id
+                     AND c.status IN ('active','agreed','confirmed','cancel_requested','cancel_requested_by_tenant','renew_requested')
+               )
+           ) AS available_rooms,
+           CASE WHEN (
+               COALESCE(p.total_rooms, p.available_rooms, 1) - (
+                   SELECT COUNT(*) FROM contracts c
+                   WHERE c.post_id = p.id
+                     AND c.status IN ('active','agreed','confirmed','cancel_requested','cancel_requested_by_tenant','renew_requested')
+               )
+           ) > 0 THEN 1 ELSE 0 END AS available
     FROM posts p
     LEFT JOIN users u ON u.phone = p.contact_phone
     $where

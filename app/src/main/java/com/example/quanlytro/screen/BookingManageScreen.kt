@@ -209,7 +209,24 @@ fun BookingCard(
                         Text(booking.phone, fontSize = 13.sp, color = Color.Gray)
                     }
                 }
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    if (booking.has_contract == 1) {
+                        Surface(
+                            color = Color(0xFF6A1B9A).copy(alpha = 0.12f),
+                            shape = RoundedCornerShape(20.dp)
+                        ) {
+                            Text(
+                                "📄 Đã có HĐ",
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF6A1B9A)
+                            )
+                        }
+                    }
                     StatusBadge(booking.status)
                 }
             }
@@ -291,15 +308,32 @@ fun BookingCard(
             // Nút tạo hợp đồng (chỉ hiện khi confirmed)
             if (booking.status == "confirmed") {
                 Spacer(Modifier.height(8.dp))
-                Button(
-                    onClick = onCreateContract,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF007BFF))
-                ) {
-                    Icon(Icons.Default.Description, null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Tạo hợp đồng", fontWeight = FontWeight.Bold)
+                if (booking.has_contract == 1) {
+                    Button(
+                        onClick = {},
+                        enabled = false,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            disabledContainerColor = Color(0xFF6A1B9A).copy(alpha = 0.15f),
+                            disabledContentColor = Color(0xFF6A1B9A)
+                        )
+                    ) {
+                        Icon(Icons.Default.CheckCircle, null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Đã tạo hợp đồng", fontWeight = FontWeight.Bold)
+                    }
+                } else {
+                    Button(
+                        onClick = onCreateContract,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF007BFF))
+                    ) {
+                        Icon(Icons.Default.Description, null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Tạo hợp đồng", fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }

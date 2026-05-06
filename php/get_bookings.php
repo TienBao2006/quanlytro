@@ -22,10 +22,12 @@ $stmt = $conn->prepare("
     SELECT b.id, b.post_id, b.user_id, b.room_number, b.full_name, b.phone,
            b.id_card, b.dob, b.id_issue_date, b.start_date, b.duration, b.email, b.address,
            b.status, b.created_at,
-           p.title AS post_title
+           p.title AS post_title,
+           IF(c.id IS NOT NULL, 1, 0) AS has_contract
     FROM bookings b
     JOIN posts p ON p.id = b.post_id
     LEFT JOIN users u ON u.phone = p.contact_phone
+    LEFT JOIN contracts c ON c.booking_id = b.id
     WHERE COALESCE(u.uid, p.user_id) = ?
     ORDER BY b.created_at DESC
 ");

@@ -184,8 +184,8 @@ fun TenantContractCard(contract: ContractItem, onClick: () -> Unit) {
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text("${formatPrice(contract.rent_price)}đ/tháng", fontSize = 12.sp, color = Color(0xFF007BFF), fontWeight = FontWeight.Bold)
-                Text("${contract.start_date}  •  ${contract.duration_months} tháng", fontSize = 12.sp, color = Color.Gray)
-            }
+                val displayDate = if (contract.start_date.isNullOrBlank() || contract.start_date.startsWith("0000")) "Chưa có" else contract.start_date
+                Text("$displayDate  •  ${contract.duration_months} tháng", fontSize = 12.sp, color = Color.Gray)            }
         }
     }
 }
@@ -203,7 +203,6 @@ fun TenantContractDetailDialog(contract: ContractItem, onDismiss: () -> Unit, on
         else                         -> Color(0xFFFF9800) to "Chờ xác nhận"
     }
 
-    var showCancelConfirm by remember { mutableStateOf(false) }
     var showRenewDialog by remember { mutableStateOf(false) }
     var renewMonths by remember { mutableStateOf("3") }
     var isLoading by remember { mutableStateOf(false) }
@@ -257,34 +256,6 @@ fun TenantContractDetailDialog(contract: ContractItem, onDismiss: () -> Unit, on
             },
             dismissButton = {
                 TextButton(onClick = { showRenewDialog = false }) { Text("Hủy") }
-            }
-        )
-    }
-
-    if (showCancelConfirm) {
-        AlertDialog(
-            onDismissRequest = { showCancelConfirm = false },
-            title = { Text("Xác nhận hủy hợp đồng") },
-            text = { Text("Bạn có chắc muốn hủy hợp đồng #${contract.id}? Hành động này không thể hoàn tác.") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        showCancelConfirm = false
-                        isLoading = true
-                        RetrofitClient.instance.cancelContract(contract.id, UserSession.uid, "tenant")
-                            .enqueue(object : Callback<SimpleResponse> {
-                                override fun onResponse(call: Call<SimpleResponse>, response: Response<SimpleResponse>) {
-                                    isLoading = false
-                                    if (response.body()?.status == "success") { onRefresh(); onDismiss() }
-                                }
-                                override fun onFailure(call: Call<SimpleResponse>, t: Throwable) { isLoading = false }
-                            })
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE53935))
-                ) { Text("Hủy hợp đồng") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showCancelConfirm = false }) { Text("Không") }
             }
         )
     }
@@ -364,14 +335,7 @@ fun TenantContractDetailDialog(contract: ContractItem, onDismiss: () -> Unit, on
                         // Đã hủy — không làm gì thêm
                     }
                     "cancel_requested_by_tenant" -> {
-                        // Khách đã yêu cầu, đang chờ chủ xác nhận
-                        Surface(color = Color(0xFFFFF3E0), shape = RoundedCornerShape(10.dp), modifier = Modifier.fillMaxWidth()) {
-                            Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Icon(Icons.Default.HourglassTop, null, tint = Color(0xFFFF9800), modifier = Modifier.size(18.dp))
-                                Text("Đang chờ chủ trọ xác nhận yêu cầu hủy của bạn",
-                                    fontSize = 13.sp, color = Color(0xFFE65100), lineHeight = 18.sp)
-                            }
-                        }
+                        // Không còn dùng — bỏ qua
                     }
                     "renew_requested" -> {
                         Surface(color = Color(0xFFE3F2FD), shape = RoundedCornerShape(10.dp), modifier = Modifier.fillMaxWidth()) {
@@ -426,27 +390,60 @@ fun TenantContractDetailDialog(contract: ContractItem, onDismiss: () -> Unit, on
                         }
                     }
                     else -> {
-                        // agreed — có thể yêu cầu gia hạn hoặc hủy
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(
-                                onClick = { showCancelConfirm = true },
-                                modifier = Modifier.weight(1f),
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFE53935)),
-                                enabled = !isLoading
-                            ) {
-                                Icon(Icons.Default.Cancel, null, modifier = Modifier.size(16.dp))
-                                Spacer(Modifier.width(4.dp))
-                                Text("Yêu cầu hủy", fontSize = 13.sp)
+                        // active (chờ xác nhận) — chỉ cho phép từ chối, không hủy
+                        if (contract.status == "active") {
+                            Surface(color = Color(0xFFE3F2FD), shape = RoundedCornerShape(10.dp), modifier = Modifier.fillMaxWidth()) {
+                                Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Icon(Icons.Default.Info, null, tint = Color(0xFF2196F3), modifier = Modifier.size(18.dp))
+                                    Text("Hợp đồng đang chờ bạn xác nhận. Vui lòng xác nhận hoặc từ chối.",
+                                        fontSize = 13.sp, color = Color(0xFF1565C0), lineHeight = 18.sp)
+                                }
                             }
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedButton(
+                                    onClick = {
+                                        isLoading = true
+                                        RetrofitClient.instance.confirmContract(contract.id, UserSession.uid, "rejected")
+                                            .enqueue(object : Callback<SimpleResponse> {
+                                                override fun onResponse(call: Call<SimpleResponse>, response: Response<SimpleResponse>) {
+                                                    isLoading = false
+                                                    if (response.body()?.status == "success") { onRefresh(); onDismiss() }
+                                                }
+                                                override fun onFailure(call: Call<SimpleResponse>, t: Throwable) { isLoading = false }
+                                            })
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFE53935)),
+                                    enabled = !isLoading
+                                ) { Text("Từ chối", fontSize = 13.sp) }
+                                Button(
+                                    onClick = {
+                                        isLoading = true
+                                        RetrofitClient.instance.confirmContract(contract.id, UserSession.uid, "agreed")
+                                            .enqueue(object : Callback<SimpleResponse> {
+                                                override fun onResponse(call: Call<SimpleResponse>, response: Response<SimpleResponse>) {
+                                                    isLoading = false
+                                                    if (response.body()?.status == "success") { onRefresh(); onDismiss() }
+                                                }
+                                                override fun onFailure(call: Call<SimpleResponse>, t: Throwable) { isLoading = false }
+                                            })
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
+                                    enabled = !isLoading
+                                ) { Text("Xác nhận", fontSize = 13.sp) }
+                            }
+                        } else {
+                            // agreed — chỉ cho phép gia hạn
                             Button(
                                 onClick = { showRenewDialog = true },
-                                modifier = Modifier.weight(1f),
+                                modifier = Modifier.fillMaxWidth(),
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2196F3)),
                                 enabled = !isLoading
                             ) {
                                 Icon(Icons.Default.Autorenew, null, modifier = Modifier.size(16.dp))
                                 Spacer(Modifier.width(4.dp))
-                                Text("Gia hạn", fontSize = 13.sp)
+                                Text("Yêu cầu gia hạn", fontSize = 13.sp)
                             }
                         }
                     }

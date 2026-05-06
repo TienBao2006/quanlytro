@@ -85,9 +85,9 @@ fun CreateContractScreen(
         }
     }
 
-    // ── Thời gian ──
-    var startDate       by remember { mutableStateOf("") }
-    var durationMonths  by remember { mutableStateOf("12") }
+    // ── Thời gian — prefill từ booking ──
+    var startDate       by remember { mutableStateOf(booking.start_date ?: "") }
+    var durationMonths  by remember { mutableStateOf(booking.duration ?: "12") }
     var paymentDay      by remember { mutableStateOf("5") }
     var paymentMethod   by remember { mutableStateOf("cash") }
     var latePaymentRule by remember { mutableStateOf("Phạt 0.1%/ngày nếu trễ hạn thanh toán") }

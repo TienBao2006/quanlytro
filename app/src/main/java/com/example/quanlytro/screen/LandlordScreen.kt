@@ -36,7 +36,8 @@ fun LandlordScreen(
     onUtilityClick: () -> Unit = {},
     onProfileClick: () -> Unit = {},
     onNotificationClick: () -> Unit = {},
-    onNoticeClick: () -> Unit = {}
+    onNoticeClick: () -> Unit = {},
+    onTenantManageClick: () -> Unit = {}
 ) {
     var bookings by remember { mutableStateOf<List<BookingItem>>(emptyList()) }
     var isLoadingBookings by remember { mutableStateOf(false) }
@@ -47,6 +48,7 @@ fun LandlordScreen(
     var totalRooms by remember { mutableStateOf(0) }
     var emptyRooms by remember { mutableStateOf(0) }
     var activeContracts by remember { mutableStateOf(0) }
+    var pendingCancelCount by remember { mutableStateOf(0) }
 
     fun loadUnreadCount() {
         RetrofitClient.instance.countNotifications(UserSession.uid)
@@ -79,6 +81,14 @@ fun LandlordScreen(
             override fun onFailure(call: Call<LandlordStatsResponse>, t: Throwable) {
                 Log.e("LandlordStats", "onFailure: ${t.message}")
             }
+        })
+        // Load số hợp đồng đang chờ phản hồi hủy
+        RetrofitClient.instance.getContractsByLandlord(uid).enqueue(object : Callback<ContractListResponse> {
+            override fun onResponse(call: Call<ContractListResponse>, response: Response<ContractListResponse>) {
+                pendingCancelCount = response.body()?.contracts
+                    ?.count { it.status == "cancel_requested_by_tenant" } ?: 0
+            }
+            override fun onFailure(call: Call<ContractListResponse>, t: Throwable) {}
         })
     }
 
@@ -191,7 +201,7 @@ fun LandlordScreen(
                     fontWeight = FontWeight.Bold
                 )
             }
-            item { ManagementGrid(onBookingManageClick = onBookingManageClick, onContractListClick = onContractListClick, onInvoiceClick = onInvoiceClick, onUtilityClick = onUtilityClick, onNoticeClick = onNoticeClick, pendingCount = bookings.count { it.status == "pending" }) }
+            item { ManagementGrid(onBookingManageClick = onBookingManageClick, onContractListClick = onContractListClick, onInvoiceClick = onInvoiceClick, onUtilityClick = onUtilityClick, onNoticeClick = onNoticeClick, onTenantManageClick = onTenantManageClick, pendingCount = bookings.count { it.status == "pending" }, pendingCancelCount = pendingCancelCount) }
 
             // ── Yêu cầu đặt phòng ──────────────────────────────────────
             item {
@@ -311,9 +321,8 @@ fun StatCard(label: String, value: String, bgColor: Color, textColor: Color, mod
 }
 
 @Composable
-fun ManagementGrid(onBookingManageClick: () -> Unit = {}, onContractListClick: () -> Unit = {}, onInvoiceClick: () -> Unit = {}, onUtilityClick: () -> Unit = {}, onNoticeClick: () -> Unit = {}, pendingCount: Int = 0) {
+fun ManagementGrid(onBookingManageClick: () -> Unit = {}, onContractListClick: () -> Unit = {}, onInvoiceClick: () -> Unit = {}, onUtilityClick: () -> Unit = {}, onNoticeClick: () -> Unit = {}, onTenantManageClick: () -> Unit = {}, pendingCount: Int = 0, pendingCancelCount: Int = 0) {
     val items = listOf(
-        ManagementAction("Thêm phòng", Icons.Default.Add, Color(0xFFE3F2FD), Color(0xFF007BFF)),
         ManagementAction("Điện & Nước", Icons.Default.FlashOn, Color(0xFFE1F5FE), Color(0xFF0288D1)),
         ManagementAction("Hóa đơn", Icons.Default.Receipt, Color(0xFFF3E5F5), Color(0xFF9C27B0)),
         ManagementAction("Khách thuê", Icons.Default.People, Color(0xFFE8F5E9), Color(0xFF4CAF50)),
@@ -364,9 +373,11 @@ fun ManagementGrid(onBookingManageClick: () -> Unit = {}, onContractListClick: (
                         "Hóa đơn"    -> onInvoiceClick
                         "Điện & Nước" -> onUtilityClick
                         "Thông báo"  -> onNoticeClick
+                        "Khách thuê" -> onTenantManageClick
                         else -> ({})
                     }
-                    ActionCard(item, onClick, Modifier.weight(1f))
+                    val badge = if (item.title == "Hợp đồng" && pendingCancelCount > 0) pendingCancelCount else 0
+                    ActionCard(item, onClick, Modifier.weight(1f), badge)
                 }
                 if (rowItems.size < 3) {
                     repeat(3 - rowItems.size) { Spacer(modifier = Modifier.weight(1f)) }
@@ -378,7 +389,7 @@ fun ManagementGrid(onBookingManageClick: () -> Unit = {}, onContractListClick: (
 }
 
 @Composable
-fun ActionCard(item: ManagementAction, onClick: () -> Unit = {}, modifier: Modifier) {
+fun ActionCard(item: ManagementAction, onClick: () -> Unit = {}, modifier: Modifier, badgeCount: Int = 0) {
     Surface(
         onClick = onClick,
         modifier = modifier.height(100.dp),
@@ -386,22 +397,42 @@ fun ActionCard(item: ManagementAction, onClick: () -> Unit = {}, modifier: Modif
         color = Color.White,
         shadowElevation = 1.dp
     ) {
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(item.bgColor),
-                contentAlignment = Alignment.Center
+        Box(modifier = Modifier.fillMaxSize()) {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
             ) {
-                Icon(item.icon, contentDescription = null, tint = item.textColor)
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(item.bgColor),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(item.icon, contentDescription = null, tint = item.textColor)
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(item.title, fontSize = 13.sp, fontWeight = FontWeight.Medium)
             }
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(item.title, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+            if (badgeCount > 0) {
+                Surface(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(6.dp)
+                        .defaultMinSize(minWidth = 20.dp, minHeight = 20.dp),
+                    color = Color(0xFFE53935),
+                    shape = CircleShape
+                ) {
+                    Text(
+                        text = "$badgeCount",
+                        color = Color.White,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                    )
+                }
+            }
         }
     }
 }

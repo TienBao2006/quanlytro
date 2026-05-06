@@ -61,6 +61,17 @@ $water_price      = floatval($_POST['water_price'] ?? 0);
 $other_fee        = floatval($_POST['other_fee'] ?? 0);
 $other_fee_note   = trim($_POST['other_fee_note'] ?? '');
 $start_date       = trim($_POST['start_date'] ?? '');
+
+// Validate và normalize start_date — chấp nhận yyyy-mm-dd hoặc dd/mm/yyyy
+if (!empty($start_date)) {
+    if (preg_match('/^(\d{2})\/(\d{2})\/(\d{4})$/', $start_date, $m)) {
+        $start_date = "{$m[3]}-{$m[2]}-{$m[1]}";
+    }
+    // Nếu vẫn không đúng format yyyy-mm-dd thì reset về rỗng
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $start_date) || $start_date === '0000-00-00') {
+        $start_date = '';
+    }
+}
 $duration_months  = intval($_POST['duration_months'] ?? 12);
 $payment_day      = intval($_POST['payment_day'] ?? 5);
 $payment_method   = trim($_POST['payment_method'] ?? 'cash');
@@ -98,25 +109,6 @@ $stmt = $conn->prepare("INSERT INTO contracts
      rules, termination_notice_days, deposit_return_condition)
     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
 
-// i=int, d=double, s=string — 29 params
-// ii  = booking_id, post_id
-// ss  = landlord_id, tenant_id
-// sss = tenant_name, tenant_phone, tenant_id_card
-// s   = tenant_address
-// sss = landlord_name, landlord_phone, landlord_address
-// sss = room_name, room_address
-// d   = room_area
-// s   = amenities
-// dd  = rent_price, deposit
-// ddd = electric_price, water_price, other_fee
-// s   = other_fee_note
-// s   = start_date
-// ii  = duration_months, payment_day
-// s   = payment_method
-// s   = late_payment_rule
-// s   = rules
-// i   = termination_notice_days
-// s   = deposit_return_condition
 $stmt->bind_param(
     "iisssssssssssdsdddddssississs",
     $booking_id, $post_id,
@@ -140,7 +132,31 @@ $stmt->bind_param(
 
 try {
     $stmt->execute();
-    echo json_encode(["status" => "success", "contract_id" => $conn->insert_id]);
+    $contract_id = $conn->insert_id;
+
+    // Thông báo cho khách thuê khi chủ tạo hợp đồng
+    $room_label = $conn->real_escape_string($room_name ?: $room_address);
+    $ntitle = "📄 Hợp đồng mới chờ xác nhận";
+    $nmsg   = "Chủ trọ đã tạo hợp đồng cho phòng \"$room_label\". Vui lòng vào mục Hợp đồng để xem và xác nhận.";
+    $conn->query("INSERT INTO notifications (user_id, title, message, type, reference_id, is_read, created_at) VALUES ('$tenant_id', '$ntitle', '$nmsg', 'contract_new', $contract_id, 0, NOW())");
+
+    // Cập nhật available_rooms của post nếu có post_id hợp lệ
+    if ($post_id > 0) {
+        $tr_res = $conn->query("SELECT COALESCE(total_rooms, available_rooms, 1) as tr FROM posts WHERE id = $post_id");
+        $total_rooms = $tr_res ? (int)$tr_res->fetch_assoc()['tr'] : 1;
+
+        $cnt_res = $conn->query("
+            SELECT COUNT(*) as cnt FROM contracts
+            WHERE post_id = $post_id AND status IN ('active','agreed','confirmed')
+        ");
+        $occupied = $cnt_res ? (int)$cnt_res->fetch_assoc()['cnt'] : 0;
+
+        $available_rooms = max(0, $total_rooms - $occupied);
+        $available = $available_rooms > 0 ? 1 : 0;
+        $conn->query("UPDATE posts SET available_rooms = $available_rooms, available = $available WHERE id = $post_id");
+    }
+
+    echo json_encode(["status" => "success", "contract_id" => $contract_id]);
 } catch (Exception $e) {
     echo json_encode(["status" => "error", "message" => $e->getMessage()]);
 }

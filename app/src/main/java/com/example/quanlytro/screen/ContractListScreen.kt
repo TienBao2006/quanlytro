@@ -206,7 +206,8 @@ fun LandlordContractCard(contract: ContractItem, onClick: () -> Unit) {
                 }
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     Icon(Icons.Default.DateRange, null, tint = Color.Gray, modifier = Modifier.size(14.dp))
-                    Text("${contract.start_date}  •  ${contract.duration_months} tháng", fontSize = 12.sp, color = Color.Gray)
+                    val displayDate = if (contract.start_date.isNullOrBlank() || contract.start_date.startsWith("0000")) "Chưa có" else contract.start_date
+                    Text("$displayDate  •  ${contract.duration_months} tháng", fontSize = 12.sp, color = Color.Gray)
                 }
             }
         }

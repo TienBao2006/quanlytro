@@ -52,7 +52,33 @@ $stmt = $conn->prepare("INSERT INTO bookings (post_id, user_id, room_number, ful
 $stmt->bind_param("isssssssssss", $post_id, $user_id, $room_number, $full_name, $phone, $id_card, $dob, $id_issue_date, $start_date, $duration, $email, $address);
 
 if ($stmt->execute()) {
-    echo json_encode(["status" => "success", "message" => "Đặt phòng thành công", "booking_id" => $conn->insert_id], JSON_UNESCAPED_UNICODE);
+    $booking_id = $conn->insert_id;
+
+    // Thông báo cho chủ trọ khi có khách đặt phòng
+    $post_res = $conn->query("SELECT title, user_id, contact_phone FROM posts WHERE id = $post_id");
+    if ($post_res && $prow = $post_res->fetch_assoc()) {
+        $post_title   = $conn->real_escape_string($prow['title']);
+        $landlord_uid = $prow['user_id'];
+        // Nếu user_id là numeric, tìm uid thật
+        if (is_numeric($landlord_uid)) {
+            $ur = $conn->query("SELECT uid FROM users WHERE id = $landlord_uid LIMIT 1");
+            if ($ur && $urow = $ur->fetch_assoc()) $landlord_uid = $urow['uid'];
+        }
+        // Fallback: tìm qua contact_phone
+        if (!$landlord_uid && $prow['contact_phone']) {
+            $cp = $conn->real_escape_string($prow['contact_phone']);
+            $ur = $conn->query("SELECT uid FROM users WHERE phone = '$cp' LIMIT 1");
+            if ($ur && $urow = $ur->fetch_assoc()) $landlord_uid = $urow['uid'];
+        }
+        $fname = $conn->real_escape_string($full_name);
+        $ntitle = "🏠 Yêu cầu đặt phòng mới";
+        $nmsg   = "$fname đã gửi yêu cầu đặt phòng \"$post_title\". Vui lòng vào mục Đặt phòng để xác nhận.";
+        if ($landlord_uid) {
+            $conn->query("INSERT INTO notifications (user_id, title, message, type, reference_id, is_read, created_at) VALUES ('$landlord_uid', '$ntitle', '$nmsg', 'booking_new', $booking_id, 0, NOW())");
+        }
+    }
+
+    echo json_encode(["status" => "success", "message" => "Đặt phòng thành công", "booking_id" => $booking_id], JSON_UNESCAPED_UNICODE);
 } else {
     echo json_encode(["status" => "error", "message" => "Lỗi lưu dữ liệu"]);
 }

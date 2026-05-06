@@ -29,25 +29,28 @@ if ($role === 'landlord') {
 $stmt->execute();
 
 if ($stmt->affected_rows > 0) {
-    // Hủy booking và trả lại phòng trống ngay khi gửi yêu cầu hủy
-    // (để đảm bảo phòng luôn được cập nhật dù flow có hoàn tất hay không)
-    $info = $conn->query("SELECT booking_id, post_id FROM contracts WHERE id = $contract_id");
-    if ($info && $row = $info->fetch_assoc()) {
-        $booking_id = (int)$row['booking_id'];
-        $post_id    = (int)$row['post_id'];
-
-        $conn->query("UPDATE bookings SET status = 'cancelled' WHERE id = $booking_id");
-
-        $cnt_res = $conn->query("SELECT COUNT(*) as cnt FROM bookings WHERE post_id = $post_id AND status = 'confirmed'");
-        $confirmed_count = $cnt_res ? (int)$cnt_res->fetch_assoc()['cnt'] : 0;
-
-        $tr_res = $conn->query("SELECT COALESCE(total_rooms, available_rooms, 1) as tr FROM posts WHERE id = $post_id");
-        $total_rooms = $tr_res ? (int)$tr_res->fetch_assoc()['tr'] : 1;
-
-        $available_rooms = max(0, $total_rooms - $confirmed_count);
-        $available = $available_rooms > 0 ? 1 : 0;
-
-        $conn->query("UPDATE posts SET available_rooms = $available_rooms, available = $available WHERE id = $post_id");
+    // Gửi notification cho bên còn lại
+    if ($role === 'tenant') {
+        // Khách yêu cầu hủy → thông báo cho chủ trọ
+        $info2 = $conn->query("SELECT c.landlord_id, c.tenant_name, c.room_name FROM contracts c WHERE c.id = $contract_id");
+        if ($info2 && $row2 = $info2->fetch_assoc()) {
+            $landlord_id  = $row2['landlord_id'];
+            $tenant_name  = $conn->real_escape_string($row2['tenant_name']);
+            $room_label   = $conn->real_escape_string($row2['room_name'] ?: 'Phòng trọ');
+            $title_notif  = "Yêu cầu hủy hợp đồng";
+            $msg_notif    = "Người thuê $tenant_name đã yêu cầu hủy hợp đồng phòng $room_label. Vui lòng vào mục Hợp đồng để phản hồi.";
+            $conn->query("INSERT INTO notifications (user_id, title, message, type, reference_id, is_read, created_at) VALUES ('$landlord_id', '$title_notif', '$msg_notif', 'cancel_contract', $contract_id, 0, NOW())");
+        }
+    } else {
+        // Chủ yêu cầu hủy → thông báo cho khách
+        $info2 = $conn->query("SELECT c.tenant_id, c.room_name FROM contracts c WHERE c.id = $contract_id");
+        if ($info2 && $row2 = $info2->fetch_assoc()) {
+            $tenant_id2  = $row2['tenant_id'];
+            $room_label  = $conn->real_escape_string($row2['room_name'] ?: 'Phòng trọ');
+            $title_notif = "Yêu cầu hủy hợp đồng";
+            $msg_notif   = "Chủ trọ đã gửi yêu cầu hủy hợp đồng phòng $room_label. Vui lòng vào mục Hợp đồng để phản hồi.";
+            $conn->query("INSERT INTO notifications (user_id, title, message, type, reference_id, is_read, created_at) VALUES ('$tenant_id2', '$title_notif', '$msg_notif', 'cancel_contract', $contract_id, 0, NOW())");
+        }
     }
     echo json_encode(["status" => "success"]);
 } else {
