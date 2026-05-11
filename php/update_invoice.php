@@ -54,8 +54,39 @@ $upd->bind_param(
 );
 
 if ($upd->execute() && $upd->affected_rows >= 0) {
+    $upd->close();
+
+    // Gửi thông báo cho khách thuê
+    $q = $conn->prepare("
+        SELECT i.tenant_id, i.month, c.room_name
+        FROM invoices i
+        JOIN contracts c ON c.id = i.contract_id
+        WHERE i.id = ?
+    ");
+    $q->bind_param("i", $invoice_id);
+    $q->execute();
+    $info = $q->get_result()->fetch_assoc();
+    $q->close();
+
+    if ($info) {
+        $month_fmt  = str_replace("-", "/", $info["month"]);
+        $room       = $info["room_name"] ?? "Phòng trọ";
+        $total_fmt  = number_format($total, 0, ".", ",");
+
+        $title   = "📋 Hóa đơn tháng $month_fmt đã được cập nhật";
+        $message = "Chủ trọ vừa cập nhật hóa đơn tháng $month_fmt.\n"
+                 . "Phòng: $room\n"
+                 . "Tổng tiền mới: {$total_fmt} VND\n"
+                 . "Vui lòng kiểm tra lại hóa đơn của bạn.";
+
+        $ins = $conn->prepare("INSERT INTO notifications (user_id, title, message, type) VALUES (?, ?, ?, 'payment')");
+        $ins->bind_param("sss", $info["tenant_id"], $title, $message);
+        $ins->execute();
+        $ins->close();
+    }
+
     echo json_encode(["status" => "success", "total" => $total]);
 } else {
     echo json_encode(["status" => "error", "message" => $conn->error]);
+    $upd->close();
 }
-$upd->close();

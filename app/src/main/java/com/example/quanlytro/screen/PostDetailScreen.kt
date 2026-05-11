@@ -7,6 +7,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -282,21 +284,54 @@ fun PostDetailScreen(
             }
         }
     ) { innerPadding ->
+        val imageCount = post.images?.size ?: 0
+        val pagerState = rememberPagerState(pageCount = { imageCount })
+        LaunchedEffect(pagerState.currentPage) {
+            selectedImageIndex = pagerState.currentPage
+        }
+        // Auto-slide mỗi 3 giây, dừng khi chỉ có 1 ảnh
+        LaunchedEffect(imageCount) {
+            if (imageCount > 1) {
+                while (true) {
+                    kotlinx.coroutines.delay(3000)
+                    val next = (pagerState.currentPage + 1) % imageCount
+                    pagerState.animateScrollToPage(next)
+                }
+            }
+        }
+
         LazyColumn(modifier = Modifier.fillMaxSize().padding(innerPadding).background(Color.White)) {
             item {
                 Box(modifier = Modifier.fillMaxWidth().height(280.dp)) {
                     if (!post.images.isNullOrEmpty()) {
-                        Base64Image(post.images[selectedImageIndex], modifier = Modifier.fillMaxSize())
+                        HorizontalPager(
+                            state = pagerState,
+                            modifier = Modifier.fillMaxSize()
+                        ) { page ->
+                            Base64Image(post.images[page], modifier = Modifier.fillMaxSize())
+                        }
+                        // Badge số ảnh
                         Surface(
                             modifier = Modifier.align(Alignment.TopEnd).padding(16.dp),
                             color = Color.Black.copy(alpha = 0.4f),
                             shape = RoundedCornerShape(8.dp)
                         ) {
-                            Text("${selectedImageIndex + 1}/${post.images.size} Ảnh", modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Text(
+                                "${pagerState.currentPage + 1}/${post.images.size} Ảnh",
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold
+                            )
                         }
-                        Row(modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        // Dot indicator
+                        Row(
+                            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
                             repeat(post.images.size) { index ->
-                                Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(if (index == selectedImageIndex) Color.White else Color.White.copy(alpha = 0.5f)))
+                                Box(
+                                    modifier = Modifier.size(8.dp).clip(CircleShape)
+                                        .background(if (index == pagerState.currentPage) Color.White else Color.White.copy(alpha = 0.5f))
+                                )
                             }
                         }
                     }

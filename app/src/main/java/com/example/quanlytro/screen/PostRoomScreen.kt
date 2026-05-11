@@ -72,8 +72,7 @@ fun PostRoomScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val auth = FirebaseAuth.getInstance()
-    val currentUserId = auth.currentUser?.uid ?: ""
+    val currentUserId = UserSession.uid
 
     val existingPost = remember {
         postJson?.let {
@@ -236,10 +235,9 @@ fun PostRoomScreen(
 
                                     call.enqueue(object : Callback<String> {
                                         override fun onResponse(call: Call<String>, response: Response<String>) {
-                                            postSuccess = response.isSuccessful
-                                            if (!response.isSuccessful) {
-                                                errorMsg = "Error ${response.code()}"
-                                            }
+                                            val body = response.body()?.trim() ?: ""
+                                            postSuccess = response.isSuccessful && (body == "OK" || body.startsWith("OK"))
+                                            if (!postSuccess) errorMsg = body.ifEmpty { "Error ${response.code()}" }
                                             cont.resume(Unit)
                                         }
                                         override fun onFailure(call: Call<String>, t: Throwable) {

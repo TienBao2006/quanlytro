@@ -35,7 +35,7 @@ fun NotificationScreen(onBackClick: () -> Unit = {}) {
     var snackMsg by remember { mutableStateOf<String?>(null) }
     val snackState = remember { SnackbarHostState() }
     var selectedContract by remember { mutableStateOf<ContractItem?>(null) }
-    var selectedTab by remember { mutableStateOf(0) } // 0=Hóa đơn, 1=Chủ trọ, 2=Hợp đồng, 3=Sắp hết hạn
+    var selectedTab by remember { mutableStateOf(0) } // 0=Chung, 1=Hóa đơn, 2=Chủ trọ, 3=Hợp đồng, 4=Sắp hết hạn
 
     LaunchedEffect(snackMsg) {
         snackMsg?.let { snackState.showSnackbar(it); snackMsg = null }
@@ -137,24 +137,30 @@ fun NotificationScreen(onBackClick: () -> Unit = {}) {
                 Tab(
                     selected = selectedTab == 0,
                     onClick = { selectedTab = 0 },
-                    text = { Text("Hóa đơn", fontSize = 12.sp) },
-                    icon = { Icon(Icons.Default.Receipt, null, modifier = Modifier.size(18.dp)) }
+                    text = { Text("Chung", fontSize = 12.sp) },
+                    icon = { Icon(Icons.Default.Notifications, null, modifier = Modifier.size(18.dp)) }
                 )
                 Tab(
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1 },
-                    text = { Text("Chủ trọ", fontSize = 12.sp) },
-                    icon = { Icon(Icons.Default.Campaign, null, modifier = Modifier.size(18.dp)) }
+                    text = { Text("Hóa đơn", fontSize = 12.sp) },
+                    icon = { Icon(Icons.Default.Receipt, null, modifier = Modifier.size(18.dp)) }
                 )
                 Tab(
                     selected = selectedTab == 2,
                     onClick = { selectedTab = 2 },
-                    text = { Text("Hợp đồng", fontSize = 12.sp) },
-                    icon = { Icon(Icons.Default.Description, null, modifier = Modifier.size(18.dp)) }
+                    text = { Text("Chủ trọ", fontSize = 12.sp) },
+                    icon = { Icon(Icons.Default.Campaign, null, modifier = Modifier.size(18.dp)) }
                 )
                 Tab(
                     selected = selectedTab == 3,
                     onClick = { selectedTab = 3 },
+                    text = { Text("Hợp đồng", fontSize = 12.sp) },
+                    icon = { Icon(Icons.Default.Description, null, modifier = Modifier.size(18.dp)) }
+                )
+                Tab(
+                    selected = selectedTab == 4,
+                    onClick = { selectedTab = 4 },
                     text = { Text("Sắp hết hạn", fontSize = 12.sp) },
                     icon = { Icon(Icons.Default.AccessTime, null, modifier = Modifier.size(18.dp)) }
                 )
@@ -166,6 +172,32 @@ fun NotificationScreen(onBackClick: () -> Unit = {}) {
                 }
             } else when (selectedTab) {
                 0 -> {
+                    // Tab chung — booking_response và các loại khác
+                    val knownTypes = setOf("payment", "invoice", "landlord_notice", "contract_expiring")
+                    val generalNotifs = notifications.filter { it.type !in knownTypes }
+                    if (generalNotifs.isEmpty()) {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(Icons.Default.Notifications, null, modifier = Modifier.size(72.dp), tint = Color.LightGray)
+                                Spacer(Modifier.height(12.dp))
+                                Text("Chưa có thông báo chung", color = Color.Gray, fontSize = 15.sp)
+                            }
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize().background(Color(0xFFF8F9FA)),
+                            contentPadding = PaddingValues(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            items(generalNotifs, key = { it.id }) { notif ->
+                                SwipeToDeleteNotif(notif, onDelete = { notifications = notifications.filter { it.id != notif.id } }) {
+                                    PaymentNotificationCard(notif)
+                                }
+                            }
+                        }
+                    }
+                }
+                1 -> {
                     // Tab hóa đơn
                     val invoiceNotifs = notifications.filter { it.type == "payment" || it.type == "invoice" }
                     if (invoiceNotifs.isEmpty()) {
@@ -190,7 +222,7 @@ fun NotificationScreen(onBackClick: () -> Unit = {}) {
                         }
                     }
                 }
-                1 -> {
+                2 -> {
                     // Tab thông báo chủ trọ
                     val landlordNotifs = notifications.filter { it.type == "landlord_notice" }
                     if (landlordNotifs.isEmpty()) {
@@ -215,7 +247,7 @@ fun NotificationScreen(onBackClick: () -> Unit = {}) {
                         }
                     }
                 }
-                2 -> {
+                3 -> {
                     if (contracts.isEmpty()) {
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -239,7 +271,7 @@ fun NotificationScreen(onBackClick: () -> Unit = {}) {
                         }
                     }
                 }
-                3 -> {
+                4 -> {
                     // Tab sắp hết hạn
                     val expiringNotifs = notifications.filter { it.type == "contract_expiring" }
                     if (expiringNotifs.isEmpty()) {

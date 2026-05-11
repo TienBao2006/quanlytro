@@ -49,7 +49,10 @@ data class PostResponse(
     val user_id: String? = null,
     val available: Int? = 1,
     val available_rooms: Int? = 1,
-    val total_rooms: Int? = 1
+    val total_rooms: Int? = 1,
+    val lat: Double? = null,
+    val lng: Double? = null,
+    val distance_km: Double? = null
 )
 
 // ── Chat ──────────────────────────────────────────────────────────────────
@@ -58,7 +61,8 @@ data class ChatMessage(
     val sender_id: String = "",
     val receiver_id: String = "",
     val message: String = "",
-    val created_at: String = ""
+    val created_at: String = "",
+    val is_read: Int = 0  // 0 = chưa đọc, 1 = đã đọc
 )
 
 data class ChatConversation(
@@ -67,7 +71,8 @@ data class ChatConversation(
     val other_name: String = "",
     val other_avatar: String = "",
     val last_message: String = "",
-    val last_time: String = ""
+    val last_time: String = "",
+    val unread_count: Int = 0
 )
 
 // ── Booking ───────────────────────────────────────────────────────────────
@@ -153,6 +158,52 @@ data class LandlordStatsResponse(
     val total_rooms: Int = 0,
     val active_contracts: Int = 0,
     val empty_rooms: Int = 0
+)
+
+// ── Revenue Stats ─────────────────────────────────────────────────────────
+data class MonthlyRevenue(
+    val month: String,
+    val revenue: Double,
+    val paid: Double = revenue,
+    val debt: Double = 0.0,
+    val total_billed: Double = revenue
+)
+
+data class YearlyRevenue(
+    val year: String,
+    val paid: Double,
+    val debt: Double,
+    val total_billed: Double
+)
+
+data class RevenueStatsResponse(
+    val status: String,
+    val current_month: String = "",
+    val current_revenue: Double = 0.0,
+    val prev_revenue: Double = 0.0,
+    val percent_change: Double = 0.0,
+    val monthly: List<MonthlyRevenue> = emptyList(),
+    val yearly: List<YearlyRevenue> = emptyList()
+)
+
+data class RoomStatItem(
+    val room_name: String,
+    val room_address: String,
+    val tenant_name: String,
+    val rent_price: Double,
+    val total: Double,
+    val paid: Double,
+    val debt: Double,
+    val status: String,
+    val invoice_id: Int
+)
+
+data class RoomStatsResponse(
+    val status: String,
+    val month: String = "",
+    val rooms: List<RoomStatItem> = emptyList(),
+    val total_paid: Double = 0.0,
+    val total_debt: Double = 0.0
 )
 
 // ── Invoice ───────────────────────────────────────────────────────────────

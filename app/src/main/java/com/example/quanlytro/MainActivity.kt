@@ -18,6 +18,7 @@ import com.example.quanlytro.screen.TenantInvoiceScreen
 import com.example.quanlytro.screen.NotificationScreen
 import com.example.quanlytro.screen.UtilityStatsScreen
 import com.example.quanlytro.screen.LandlordNoticeScreen
+import com.example.quanlytro.screen.RevenueStatsScreen
 import com.example.quanlytro.ui.theme.QuanLyTroTheme
 import com.google.gson.Gson
 import java.net.URLDecoder
@@ -199,6 +200,9 @@ fun AppNavigation() {
                 onExploreClick = {
                     navController.navigate("home/$role")
                 },
+                onManageClick = {
+                    navController.navigate("landlord/$role")
+                },
                 onChatListClick = {
                     navController.navigate("chat_list") {
                         popUpTo("home/${UserSession.role}") { saveState = true }
@@ -210,6 +214,9 @@ fun AppNavigation() {
                 },
                 onMyInvoiceClick = {
                     navController.navigate("my_invoices")
+                },
+                onSettingsClick = {
+                    navController.navigate("settings")
                 }
             )
         }
@@ -226,13 +233,20 @@ fun AppNavigation() {
                 onBackClick = { navController.popBackStack() },
                 onExploreClick = { navController.navigate("home/$role") },
                 onProfileClick = { navController.navigate("profile/$role") },
+                onChatListClick = {
+                    navController.navigate("chat_list") {
+                        popUpTo("home/${UserSession.role}") { saveState = true }
+                        launchSingleTop = true
+                    }
+                },
                 onBookingManageClick = { navController.navigate("booking_manage") },
                 onContractListClick = { navController.navigate("contract_list") },
                 onInvoiceClick = { navController.navigate("invoice_manage") },
                 onUtilityClick = { navController.navigate("utility_stats") },
                 onNotificationClick = { navController.navigate("notifications") },
                 onNoticeClick = { navController.navigate("landlord_notice") },
-                onTenantManageClick = { navController.navigate("tenant_manage") }
+                onTenantManageClick = { navController.navigate("tenant_manage") },
+                onStatsClick = { navController.navigate("revenue_stats") }
             )
         }
         composable("booking_manage") {
@@ -318,6 +332,12 @@ fun AppNavigation() {
                     navController.navigate("chat/$otherId/$encodedName")
                 }
             )
+        }
+        composable("revenue_stats") {
+            RevenueStatsScreen(onBackClick = { navController.popBackStack() })
+        }
+        composable("settings") {
+            com.example.quanlytro.screen.SettingsScreen(onBackClick = { navController.popBackStack() })
         }
     }
 }

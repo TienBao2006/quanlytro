@@ -35,6 +35,11 @@ import retrofit2.Callback
 import retrofit2.Response
 import java.text.SimpleDateFormat
 import java.util.*
+import androidx.compose.ui.platform.LocalContext
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import android.content.Intent
+import android.net.Uri
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Màn hình quản lý hóa đơn cho CHỦ TRỌ
@@ -50,6 +55,10 @@ fun InvoiceManageScreen(onBackClick: () -> Unit = {}) {
     var deletingInvoice  by remember { mutableStateOf<InvoiceItem?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     var snackMsg by remember { mutableStateOf<String?>(null) }
+    var searchQuery by remember { mutableStateOf("") }
+    // sort: "month_desc" | "month_asc" | "room_asc"
+    var sortMode by remember { mutableStateOf("month_desc") }
+    var showSortMenu by remember { mutableStateOf(false) }
 
     fun loadContracts() {
         RetrofitClient.instance.getContractsByLandlord(UserSession.uid)
@@ -150,6 +159,28 @@ fun InvoiceManageScreen(onBackClick: () -> Unit = {}) {
                     }
                 },
                 actions = {
+                    Box {
+                        IconButton(onClick = { showSortMenu = true }) {
+                            Icon(Icons.Default.Sort, null, tint = Color(0xFF007BFF))
+                        }
+                        DropdownMenu(expanded = showSortMenu, onDismissRequest = { showSortMenu = false }) {
+                            DropdownMenuItem(
+                                text = { Text("Tháng mới nhất") },
+                                onClick = { sortMode = "month_desc"; showSortMenu = false },
+                                leadingIcon = { if (sortMode == "month_desc") Icon(Icons.Default.Check, null, tint = Color(0xFF007BFF)) }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Tháng cũ nhất") },
+                                onClick = { sortMode = "month_asc"; showSortMenu = false },
+                                leadingIcon = { if (sortMode == "month_asc") Icon(Icons.Default.Check, null, tint = Color(0xFF007BFF)) }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Theo phòng (A-Z)") },
+                                onClick = { sortMode = "room_asc"; showSortMenu = false },
+                                leadingIcon = { if (sortMode == "room_asc") Icon(Icons.Default.Check, null, tint = Color(0xFF007BFF)) }
+                            )
+                        }
+                    }
                     IconButton(onClick = { showCreateDialog = true }) {
                         Icon(Icons.Default.Add, null, tint = Color(0xFF007BFF))
                     }
@@ -158,6 +189,26 @@ fun InvoiceManageScreen(onBackClick: () -> Unit = {}) {
             )
         }
     ) { padding ->
+        // Lọc + sắp xếp — key theo searchQuery, sortMode, invoices để recompute đúng
+        val filtered = remember(searchQuery, sortMode, invoices) {
+            invoices
+                .filter { inv ->
+                    if (searchQuery.isBlank()) true
+                    else {
+                        val q = searchQuery.trim().lowercase()
+                        inv.month.contains(q) ||
+                                (inv.room_name?.lowercase()?.contains(q) == true)
+                    }
+                }
+                .let { list ->
+                    when (sortMode) {
+                        "month_asc" -> list.sortedBy { it.month }
+                        "room_asc"  -> list.sortedWith(compareBy({ it.room_name ?: "" }, { it.month }))
+                        else        -> list.sortedByDescending { it.month }
+                    }
+                }
+        }
+
         if (isLoading) {
             Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = Color(0xFF007BFF))
@@ -181,26 +232,103 @@ fun InvoiceManageScreen(onBackClick: () -> Unit = {}) {
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                items(invoices) { inv ->
-                    InvoiceCard(
-                        invoice = inv,
-                        isLandlord = true,
-                        onMarkPaid = {
-                            val newStatus = if (inv.status == "paid") "unpaid" else "paid"
-                            RetrofitClient.instance.updateInvoiceStatus(inv.id, newStatus, UserSession.uid)
-                                .enqueue(object : Callback<SimpleResponse> {
-                                    override fun onResponse(call: Call<SimpleResponse>, response: Response<SimpleResponse>) {
-                                        snackMsg = if (newStatus == "paid") "Đã đánh dấu đã thanh toán" else "Đã đánh dấu chưa thanh toán"
-                                        loadInvoices()
-                                    }
-                                    override fun onFailure(call: Call<SimpleResponse>, t: Throwable) {
-                                        snackMsg = "Lỗi kết nối"
-                                    }
-                                })
+                // Thanh tìm kiếm
+                item {
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        placeholder = { Text("Tìm theo tháng hoặc tên phòng...") },
+                        leadingIcon = { Icon(Icons.Default.Search, null, tint = Color.Gray) },
+                        trailingIcon = {
+                            if (searchQuery.isNotBlank()) {
+                                IconButton(onClick = { searchQuery = "" }) {
+                                    Icon(Icons.Default.Close, null, tint = Color.Gray)
+                                }
+                            }
                         },
-                        onEdit   = { editingInvoice = inv },
-                        onDelete = { deletingInvoice = inv }
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = Color.White,
+                            unfocusedContainerColor = Color.White,
+                            focusedBorderColor = Color(0xFF007BFF),
+                            unfocusedBorderColor = Color(0xFFE0E0E0)
+                        )
                     )
+                }
+
+                if (filtered.isEmpty()) {
+                    item {
+                        Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                            Text("Không tìm thấy hóa đơn nào", color = Color.Gray)
+                        }
+                    }
+                } else {
+                    // Nhóm theo tháng khi sort theo tháng, nhóm theo phòng khi sort theo phòng
+                    if (sortMode == "room_asc") {
+                        val grouped = filtered.groupBy { it.room_name ?: "Không rõ phòng" }
+                        grouped.forEach { (room, list) ->
+                            item {
+                                Text(
+                                    room,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp,
+                                    color = Color(0xFF555555),
+                                    modifier = Modifier.padding(vertical = 4.dp)
+                                )
+                            }
+                            items(list) { inv ->
+                                InvoiceCard(
+                                    invoice = inv, isLandlord = true,
+                                    onMarkPaid = {
+                                        val newStatus = if (inv.status == "paid") "unpaid" else "paid"
+                                        RetrofitClient.instance.updateInvoiceStatus(inv.id, newStatus, UserSession.uid)
+                                            .enqueue(object : Callback<SimpleResponse> {
+                                                override fun onResponse(call: Call<SimpleResponse>, response: Response<SimpleResponse>) {
+                                                    snackMsg = if (newStatus == "paid") "Đã đánh dấu đã thanh toán" else "Đã đánh dấu chưa thanh toán"
+                                                    loadInvoices()
+                                                }
+                                                override fun onFailure(call: Call<SimpleResponse>, t: Throwable) { snackMsg = "Lỗi kết nối" }
+                                            })
+                                    },
+                                    onEdit   = { editingInvoice = inv },
+                                    onDelete = { deletingInvoice = inv }
+                                )
+                            }
+                        }
+                    } else {
+                        val grouped = filtered.groupBy { it.month }
+                        grouped.forEach { (month, list) ->
+                            item {
+                                Text(
+                                    "Tháng ${month.replace("-", "/")}",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp,
+                                    color = Color(0xFF555555),
+                                    modifier = Modifier.padding(vertical = 4.dp)
+                                )
+                            }
+                            items(list) { inv ->
+                                InvoiceCard(
+                                    invoice = inv, isLandlord = true,
+                                    onMarkPaid = {
+                                        val newStatus = if (inv.status == "paid") "unpaid" else "paid"
+                                        RetrofitClient.instance.updateInvoiceStatus(inv.id, newStatus, UserSession.uid)
+                                            .enqueue(object : Callback<SimpleResponse> {
+                                                override fun onResponse(call: Call<SimpleResponse>, response: Response<SimpleResponse>) {
+                                                    snackMsg = if (newStatus == "paid") "Đã đánh dấu đã thanh toán" else "Đã đánh dấu chưa thanh toán"
+                                                    loadInvoices()
+                                                }
+                                                override fun onFailure(call: Call<SimpleResponse>, t: Throwable) { snackMsg = "Lỗi kết nối" }
+                                            })
+                                    },
+                                    onEdit   = { editingInvoice = inv },
+                                    onDelete = { deletingInvoice = inv }
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -218,6 +346,7 @@ fun TenantInvoiceScreen(onBackClick: () -> Unit = {}) {
     var payingInvoice by remember { mutableStateOf<InvoiceItem?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     var snackMsg by remember { mutableStateOf<String?>(null) }
+    var searchQuery by remember { mutableStateOf("") }
 
     fun loadInvoices() {
         isLoading = true
@@ -279,18 +408,75 @@ fun TenantInvoiceScreen(onBackClick: () -> Unit = {}) {
                 }
             }
         } else {
+            val filtered = remember(searchQuery, invoices) {
+                invoices
+                    .filter { inv ->
+                        if (searchQuery.isBlank()) true
+                        else {
+                            val q = searchQuery.trim().lowercase()
+                            inv.month.contains(q) || (inv.room_name?.lowercase()?.contains(q) == true)
+                        }
+                    }
+                    .sortedByDescending { it.month }
+            }
+
             LazyColumn(
                 modifier = Modifier.fillMaxSize().padding(padding).background(Color(0xFFF8F9FA)),
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                items(invoices) { inv ->
-                    InvoiceCard(
-                        invoice = inv,
-                        isLandlord = false,
-                        onMarkPaid = {},
-                        onPayClick = { payingInvoice = inv }
+                item {
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        placeholder = { Text("Tìm theo tháng hoặc tên phòng...") },
+                        leadingIcon = { Icon(Icons.Default.Search, null, tint = Color.Gray) },
+                        trailingIcon = {
+                            if (searchQuery.isNotBlank()) {
+                                IconButton(onClick = { searchQuery = "" }) {
+                                    Icon(Icons.Default.Close, null, tint = Color.Gray)
+                                }
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = Color.White,
+                            unfocusedContainerColor = Color.White,
+                            focusedBorderColor = Color(0xFF007BFF),
+                            unfocusedBorderColor = Color(0xFFE0E0E0)
+                        )
                     )
+                }
+
+                if (filtered.isEmpty()) {
+                    item {
+                        Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                            Text("Không tìm thấy hóa đơn nào", color = Color.Gray)
+                        }
+                    }
+                } else {
+                    val grouped = filtered.groupBy { it.month }
+                    grouped.forEach { (month, list) ->
+                        item {
+                            Text(
+                                "Tháng ${month.replace("-", "/")}",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                color = Color(0xFF555555),
+                                modifier = Modifier.padding(vertical = 4.dp)
+                            )
+                        }
+                        items(list) { inv ->
+                            InvoiceCard(
+                                invoice = inv,
+                                isLandlord = false,
+                                onMarkPaid = {},
+                                onPayClick = { payingInvoice = inv }
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -1068,7 +1254,8 @@ private fun PreviewRowWhite(label: String, value: String) {
 
 enum class PaymentMethod(val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
     CASH("Tiền mặt (COD)", Icons.Default.Money),
-    WALLET("Ví điện tử", Icons.Default.AccountBalanceWallet)
+    WALLET("Ví điện tử", Icons.Default.AccountBalanceWallet),
+    QR_CODE("Quét mã QR", Icons.Default.QrCode)
 }
 
 @Composable

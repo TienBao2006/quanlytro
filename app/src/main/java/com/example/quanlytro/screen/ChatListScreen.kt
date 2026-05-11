@@ -147,10 +147,12 @@ fun ChatListScreen(
 
 @Composable
 fun ConversationItem(conv: ChatConversation, onClick: () -> Unit) {
+    val hasUnread = conv.unread_count > 0
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() }
+            .background(if (hasUnread) Color(0xFFF0F7FF) else Color.White)
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -162,14 +164,37 @@ fun ConversationItem(conv: ChatConversation, onClick: () -> Unit) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(conv.other_name, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color(0xFF0D1B34))
-                Text(text = formatMysqlTime(conv.last_time), fontSize = 11.sp, color = Color.Gray)
+                Text(
+                    conv.other_name,
+                    fontWeight = if (hasUnread) FontWeight.ExtraBold else FontWeight.Bold,
+                    fontSize = 15.sp,
+                    color = Color(0xFF0D1B34)
+                )
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(text = formatMysqlTime(conv.last_time), fontSize = 11.sp, color = if (hasUnread) Color(0xFF007BFF) else Color.Gray)
+                    if (hasUnread) {
+                        Box(
+                            modifier = Modifier
+                                .size(20.dp)
+                                .background(Color(0xFF007BFF), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = if (conv.unread_count > 99) "99+" else conv.unread_count.toString(),
+                                color = Color.White,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
             }
             Spacer(Modifier.height(3.dp))
             Text(
                 text = conv.last_message,
                 fontSize = 13.sp,
-                color = Color.Gray,
+                color = if (hasUnread) Color(0xFF0D1B34) else Color.Gray,
+                fontWeight = if (hasUnread) FontWeight.Medium else FontWeight.Normal,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )

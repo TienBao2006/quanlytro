@@ -15,7 +15,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $contact_phone   = isset($_POST['contact_phone'])   ? $_POST['contact_phone']   : '';
     $images          = isset($_POST['images'])          ? $_POST['images']          : '[]';
     $total_rooms     = isset($_POST['total_rooms'])     ? (int)$_POST['total_rooms']     : 1;
-    $available_rooms = $total_rooms; // khi mới đăng, chưa có ai thuê
+    $lat             = isset($_POST['lat'])  && $_POST['lat']  !== '' ? floatval($_POST['lat'])  : 0.0;
+    $lng             = isset($_POST['lng'])  && $_POST['lng']  !== '' ? floatval($_POST['lng'])  : 0.0;
+    $available_rooms = $total_rooms;
     $available       = $total_rooms > 0 ? 1 : 0;
 
     if (empty($title) || empty($location) || empty($price) || empty($contact_phone)) {
@@ -24,17 +26,19 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     }
 
     try {
-        // Thêm cột total_rooms nếu chưa có
         $conn->query("ALTER TABLE posts ADD COLUMN IF NOT EXISTS total_rooms INT DEFAULT 1");
+        $conn->query("ALTER TABLE posts ADD COLUMN IF NOT EXISTS lat DOUBLE DEFAULT NULL");
+        $conn->query("ALTER TABLE posts ADD COLUMN IF NOT EXISTS lng DOUBLE DEFAULT NULL");
 
-        $sql = "INSERT INTO posts (user_id, title, location, price, area, description, amenities, map_url, contact_name, contact_phone, images, available, available_rooms, total_rooms)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        $sql = "INSERT INTO posts (user_id, title, location, price, area, description, amenities, map_url, contact_name, contact_phone, images, available, available_rooms, total_rooms, lat, lng)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         $stmt = $conn->prepare($sql);
-        $stmt->bind_param("sssddssssssiii",
+        $stmt->bind_param("sssddssssssiiidd",
             $user_id, $title, $location, $price, $area,
             $description, $amenities, $map_url,
             $contact_name, $contact_phone, $images,
-            $available, $available_rooms, $total_rooms
+            $available, $available_rooms, $total_rooms,
+            $lat, $lng
         );
 
         if ($stmt->execute()) {

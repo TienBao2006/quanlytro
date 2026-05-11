@@ -84,14 +84,13 @@ fun BookingScreen(
     var showStartDatePicker  by remember { mutableStateOf(false) }
 
     fun sendOtp() {
-        if (phone.isBlank()) { errorMsg = "Vui lòng nhập số điện thoại"; return }
+        if (email.isBlank()) { errorMsg = "Vui lòng nhập email để nhận OTP"; return }
         isLoading = true
-        RetrofitClient.instance.sendOtp(phone).enqueue(object : Callback<OtpResponse> {
+        RetrofitClient.instance.sendOtp(email).enqueue(object : Callback<OtpResponse> {
             override fun onResponse(call: Call<OtpResponse>, response: Response<OtpResponse>) {
                 isLoading = false
                 val body = response.body()
                 if (body?.status == "success") {
-                    otpDebug = body.otp_debug ?: ""
                     otpCode = ""
                     otpError = null
                     showOtpDialog = true
@@ -108,7 +107,7 @@ fun BookingScreen(
 
     fun verifyAndBook() {
         otpLoading = true
-        RetrofitClient.instance.verifyOtp(phone, otpCode).enqueue(object : Callback<SimpleResponse> {
+        RetrofitClient.instance.verifyOtp(email, otpCode).enqueue(object : Callback<SimpleResponse> {
             override fun onResponse(call: Call<SimpleResponse>, response: Response<SimpleResponse>) {
                 val body = response.body()
                 if (body?.status == "success") {
@@ -355,13 +354,7 @@ fun BookingScreen(
                 ) {
                     Icon(Icons.Default.Sms, null, tint = Color(0xFF007BFF), modifier = Modifier.size(48.dp))
                     Text("Xác nhận OTP", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                    Text("Mã OTP đã được gửi đến số\n$phone", fontSize = 14.sp, color = Color.Gray, textAlign = TextAlign.Center)
-
-                    if (otpDebug.isNotEmpty()) {
-                        Surface(color = Color(0xFFFFF9C4), shape = RoundedCornerShape(8.dp)) {
-                            Text("OTP (test): $otpDebug", modifier = Modifier.padding(8.dp), fontSize = 13.sp, color = Color(0xFF795548), fontWeight = FontWeight.Bold)
-                        }
-                    }
+                    Text("Mã OTP đã được gửi đến email\n$email", fontSize = 14.sp, color = Color.Gray, textAlign = TextAlign.Center)
 
                     OutlinedTextField(
                         value = otpCode,

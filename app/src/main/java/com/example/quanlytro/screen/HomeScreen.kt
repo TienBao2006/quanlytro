@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.foundation.shape.CircleShape
@@ -102,106 +104,197 @@ fun HomeScreen(
     if (showFilterSheet) {
         ModalBottomSheet(
             onDismissRequest = { showFilterSheet = false },
-            sheetState = rememberModalBottomSheetState()
+            sheetState = rememberModalBottomSheetState(),
+            containerColor = Color.White,
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
         ) {
-            Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp).fillMaxWidth().verticalScroll(rememberScrollState())) {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text("Bộ lọc nâng cao", fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                    TextButton(onClick = {
-                        minPrice = 0f
-                        maxPrice = 20f
-                        minArea = 0f
-                        maxArea = 100f
-                        selectedProvince = "Tất cả"
-                    }) { Text("Đặt lại", color = Color.Red) }
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                Text("Khoảng giá (Triệu VNĐ)", fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                RangeSlider(
-                    value = minPrice..maxPrice,
-                    onValueChange = { minPrice = it.start; maxPrice = it.endInclusive },
-                    valueRange = 0f..20f,
-                    modifier = Modifier.padding(vertical = 4.dp)
-                )
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("${minPrice.toInt()} triệu", fontSize = 13.sp, color = Color.Gray)
-                    Text("${maxPrice.toInt()} triệu+", fontSize = 13.sp, color = Color.Gray)
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                Text("Diện tích (m²)", fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                RangeSlider(
-                    value = minArea..maxArea,
-                    onValueChange = { minArea = it.start; maxArea = it.endInclusive },
-                    valueRange = 0f..100f,
-                    modifier = Modifier.padding(vertical = 4.dp)
-                )
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("${minArea.toInt()} m²", fontSize = 13.sp, color = Color.Gray)
-                    Text("${maxArea.toInt()} m²+", fontSize = 13.sp, color = Color.Gray)
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                Text("Tỉnh / Thành phố", fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                Spacer(modifier = Modifier.height(12.dp))
-
-                var provinceExpanded by remember { mutableStateOf(false) }
-                ExposedDropdownMenuBox(
-                    expanded = provinceExpanded,
-                    onExpandedChange = { provinceExpanded = !provinceExpanded }
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                // Header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    OutlinedTextField(
-                        value = selectedProvince,
-                        onValueChange = {},
-                        readOnly = true,
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = provinceExpanded) },
-                        modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            unfocusedContainerColor = Color(0xFFF1F5F9),
-                            focusedContainerColor = Color(0xFFF1F5F9),
-                            unfocusedBorderColor = Color.Transparent,
-                            focusedBorderColor = Color(0xFF007BFF)
+                    Column {
+                        Text("Bộ lọc", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0D1B34))
+                        Text("Tìm phòng phù hợp với bạn", fontSize = 13.sp, color = Color(0xFF7E8CA0))
+                    }
+                    Surface(
+                        onClick = {
+                            minPrice = 0f; maxPrice = 20f
+                            minArea = 0f; maxArea = 100f
+                            selectedProvince = "Tất cả"
+                        },
+                        shape = RoundedCornerShape(20.dp),
+                        color = Color(0xFFFFEBEE)
+                    ) {
+                        Text(
+                            "Đặt lại",
+                            color = Color(0xFFE53935),
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(28.dp))
+
+                // Giá
+                FilterSectionCard {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier.size(36.dp)
+                                    .background(Color(0xFFE3F2FD), RoundedCornerShape(10.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.AttachMoney, null, tint = Color(0xFF1565C0), modifier = Modifier.size(20.dp))
+                            }
+                            Spacer(Modifier.width(10.dp))
+                            Text("Khoảng giá", fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = Color(0xFF0D1B34))
+                        }
+                        Surface(shape = RoundedCornerShape(20.dp), color = Color(0xFFE3F2FD)) {
+                            Text(
+                                "${minPrice.toInt()} – ${maxPrice.toInt()} triệu",
+                                fontSize = 12.sp, color = Color(0xFF1565C0), fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    RangeSlider(
+                        value = minPrice..maxPrice,
+                        onValueChange = { minPrice = it.start; maxPrice = it.endInclusive },
+                        valueRange = 0f..20f,
+                        colors = SliderDefaults.colors(
+                            thumbColor = Color(0xFF1565C0),
+                            activeTrackColor = Color(0xFF1565C0),
+                            inactiveTrackColor = Color(0xFFE2E8F0)
                         )
                     )
-                    ExposedDropdownMenu(
-                        expanded = provinceExpanded,
-                        onDismissRequest = { provinceExpanded = false },
-                        modifier = Modifier.background(Color.White)
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("0 triệu", fontSize = 12.sp, color = Color(0xFF7E8CA0))
+                        Text("20 triệu+", fontSize = 12.sp, color = Color(0xFF7E8CA0))
+                    }
+                }
+
+                Spacer(Modifier.height(12.dp))
+
+                // Diện tích
+                FilterSectionCard {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        DropdownMenuItem(
-                            text = { Text("Tất cả") },
-                            onClick = {
-                                selectedProvince = "Tất cả"
-                                provinceExpanded = false
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier.size(36.dp)
+                                    .background(Color(0xFFE8F5E9), RoundedCornerShape(10.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.SquareFoot, null, tint = Color(0xFF2E7D32), modifier = Modifier.size(20.dp))
                             }
-                        )
-                        vietNamData.keys.sorted().forEach { province ->
-                            DropdownMenuItem(
-                                text = { Text(province) },
-                                onClick = {
-                                    selectedProvince = province
-                                    provinceExpanded = false
-                                }
+                            Spacer(Modifier.width(10.dp))
+                            Text("Diện tích", fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = Color(0xFF0D1B34))
+                        }
+                        Surface(shape = RoundedCornerShape(20.dp), color = Color(0xFFE8F5E9)) {
+                            Text(
+                                "${minArea.toInt()} – ${maxArea.toInt()} m²",
+                                fontSize = 12.sp, color = Color(0xFF2E7D32), fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                             )
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    RangeSlider(
+                        value = minArea..maxArea,
+                        onValueChange = { minArea = it.start; maxArea = it.endInclusive },
+                        valueRange = 0f..100f,
+                        colors = SliderDefaults.colors(
+                            thumbColor = Color(0xFF2E7D32),
+                            activeTrackColor = Color(0xFF2E7D32),
+                            inactiveTrackColor = Color(0xFFE2E8F0)
+                        )
+                    )
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("0 m²", fontSize = 12.sp, color = Color(0xFF7E8CA0))
+                        Text("100 m²+", fontSize = 12.sp, color = Color(0xFF7E8CA0))
+                    }
+                }
+
+                Spacer(Modifier.height(12.dp))
+
+                // Tỉnh thành
+                FilterSectionCard {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier.size(36.dp)
+                                .background(Color(0xFFFFF3E0), RoundedCornerShape(10.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.LocationOn, null, tint = Color(0xFFF57C00), modifier = Modifier.size(20.dp))
+                        }
+                        Spacer(Modifier.width(10.dp))
+                        Text("Tỉnh / Thành phố", fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = Color(0xFF0D1B34))
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    var provinceExpanded by remember { mutableStateOf(false) }
+                    ExposedDropdownMenuBox(
+                        expanded = provinceExpanded,
+                        onExpandedChange = { provinceExpanded = !provinceExpanded }
+                    ) {
+                        OutlinedTextField(
+                            value = selectedProvince,
+                            onValueChange = {},
+                            readOnly = true,
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = provinceExpanded) },
+                            modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                unfocusedContainerColor = Color(0xFFF8FAFC),
+                                focusedContainerColor = Color(0xFFF8FAFC),
+                                unfocusedBorderColor = Color(0xFFE2E8F0),
+                                focusedBorderColor = Color(0xFF007BFF)
+                            )
+                        )
+                        ExposedDropdownMenu(
+                            expanded = provinceExpanded,
+                            onDismissRequest = { provinceExpanded = false },
+                            modifier = Modifier.background(Color.White)
+                        ) {
+                            DropdownMenuItem(text = { Text("Tất cả") }, onClick = { selectedProvince = "Tất cả"; provinceExpanded = false })
+                            vietNamData.keys.sorted().forEach { province ->
+                                DropdownMenuItem(text = { Text(province) }, onClick = { selectedProvince = province; provinceExpanded = false })
+                            }
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(32.dp))
+                Spacer(Modifier.height(24.dp))
+
+                // Nút áp dụng
                 Button(
                     onClick = { showFilterSheet = false },
-                    modifier = Modifier.fillMaxWidth().height(56.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF007BFF))
+                    modifier = Modifier.fillMaxWidth().height(54.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1565C0))
                 ) {
-                    Text("Áp dụng", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Icon(Icons.Default.FilterList, null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Áp dụng bộ lọc", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                 }
-                Spacer(modifier = Modifier.height(32.dp))
+                Spacer(Modifier.height(32.dp))
             }
         }
     }
@@ -273,7 +366,7 @@ fun HomeScreen(
                         Box(modifier = Modifier.weight(1f)) {
                             SearchField(value = searchQuery, onValueChange = { searchQuery = it })
                         }
-                        Spacer(modifier = Modifier.width(12.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
                         val isFiltering = selectedProvince != "Tất cả" || minPrice > 0f || maxPrice < 20f || minArea > 0f || maxArea < 100f
                         Surface(
                             onClick = { showFilterSheet = true },
@@ -505,7 +598,34 @@ fun RecentCard(post: PostResponse, userRole: String, onDelete: (PostResponse) ->
             // Ảnh
             Box(modifier = Modifier.fillMaxWidth().height(200.dp)) {
                 if (!post.images.isNullOrEmpty()) {
-                    Base64Image(post.images[0], modifier = Modifier.fillMaxSize())
+                    val pagerState = rememberPagerState(pageCount = { post.images.size })
+                    // Auto-slide mỗi 3 giây
+                    LaunchedEffect(post.images.size) {
+                        if (post.images.size > 1) {
+                            while (true) {
+                                kotlinx.coroutines.delay(3000)
+                                val next = (pagerState.currentPage + 1) % post.images.size
+                                pagerState.animateScrollToPage(next)
+                            }
+                        }
+                    }
+                    HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
+                        Base64Image(post.images[page], modifier = Modifier.fillMaxSize())
+                    }
+                    // Dot indicator (chỉ hiện khi có > 1 ảnh)
+                    if (post.images.size > 1) {
+                        Row(
+                            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(5.dp)
+                        ) {
+                            repeat(post.images.size) { index ->
+                                Box(
+                                    modifier = Modifier.size(6.dp).clip(CircleShape)
+                                        .background(if (index == pagerState.currentPage) Color.White else Color.White.copy(alpha = 0.5f))
+                                )
+                            }
+                        }
+                    }
                 } else {
                     Box(modifier = Modifier.fillMaxSize().background(Color(0xFFE3F2FD)), contentAlignment = Alignment.Center) {
                         Icon(Icons.Default.Home, null, tint = Color(0xFF90CAF9), modifier = Modifier.size(64.dp))
@@ -634,5 +754,18 @@ fun BottomNavBar(
                 }
             )
         }
+    }
+}
+
+@Composable
+private fun FilterSectionCard(content: @Composable ColumnScope.() -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0))
+    ) {
+        Column(modifier = Modifier.padding(16.dp), content = content)
     }
 }

@@ -17,6 +17,14 @@ interface ApiService {
     ): Call<String>
 
     @FormUrlEncoded
+    @POST("change_password.php")
+    fun changePassword(
+        @Field("uid")          uid: String,
+        @Field("old_password") oldPassword: String,
+        @Field("new_password") newPassword: String
+    ): Call<SimpleResponse>
+
+    @FormUrlEncoded
     @POST("login.php")
     fun loginUser(
         @Field("email")    email: String,
@@ -49,6 +57,14 @@ interface ApiService {
     @GET("get_posts.php")
     fun getPostById(@Query("id") id: Int): Call<List<PostResponse>>
 
+    @GET("get_nearby_posts.php")
+    fun getNearbyPosts(
+        @Query("lat")    lat: Double,
+        @Query("lng")    lng: Double,
+        @Query("radius") radius: Double = 10.0,
+        @Query("limit")  limit: Int = 20
+    ): Call<List<PostResponse>>
+
     @FormUrlEncoded
     @POST("upload_post.php")
     fun uploadPost(
@@ -63,7 +79,9 @@ interface ApiService {
         @Field("contact_name")    contactName: String,
         @Field("contact_phone")   contactPhone: String,
         @Field("images")          imagesJson: String,
-        @Field("total_rooms")     totalRooms: Int
+        @Field("total_rooms")     totalRooms: Int,
+        @Field("lat")             lat: Double? = null,
+        @Field("lng")             lng: Double? = null
     ): Call<String>
 
     @FormUrlEncoded
@@ -107,6 +125,13 @@ interface ApiService {
     fun getChatList(@Query("user_id") userId: String): Call<List<ChatConversation>>
 
     @FormUrlEncoded
+    @POST("chat_mark_read.php")
+    fun markMessagesRead(
+        @Field("receiver_id") receiverId: String,
+        @Field("sender_id")   senderId: String
+    ): Call<SimpleResponse>
+
+    @FormUrlEncoded
     @POST("chat_welcome.php")
     fun sendWelcomeMessage(
         @Field("landlord_id") landlordId: String,
@@ -116,12 +141,12 @@ interface ApiService {
     // ── Booking ───────────────────────────────────────────────────────────
     @FormUrlEncoded
     @POST("send_otp.php")
-    fun sendOtp(@Field("phone") phone: String): Call<OtpResponse>
+    fun sendOtp(@Field("email") email: String): Call<OtpResponse>
 
     @FormUrlEncoded
     @POST("verify_otp.php")
     fun verifyOtp(
-        @Field("phone") phone: String,
+        @Field("email") email: String,
         @Field("otp")   otp: String
     ): Call<SimpleResponse>
 
@@ -193,6 +218,15 @@ interface ApiService {
 
     @GET("get_landlord_stats.php")
     fun getLandlordStats(@Query("landlord_id") landlordId: String): Call<LandlordStatsResponse>
+
+    @GET("get_revenue_stats.php")
+    fun getRevenueStats(@Query("landlord_id") landlordId: String): Call<RevenueStatsResponse>
+
+    @GET("get_room_stats.php")
+    fun getRoomStats(
+        @Query("landlord_id") landlordId: String,
+        @Query("month") month: String
+    ): Call<RoomStatsResponse>
 
     @GET("get_contracts.php")
     fun getContractsByLandlord(@Query("landlord_id") landlordId: String): Call<ContractListResponse>

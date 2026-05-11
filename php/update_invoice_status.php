@@ -47,18 +47,33 @@ if ($status === "paid") {
             $total_fmt    = number_format($row["total"], 0, ".", ",");
             $paid_fmt     = date("d/m/Y H:i", strtotime($paid_at));
 
-            $title   = "💰 Thanh toán hóa đơn tháng $month_fmt";
-            $message = "$tenant_name đã thanh toán hóa đơn tháng $month_fmt\n"
-                     . "Phòng: $room\n"
-                     . "Số tiền: {$total_fmt} VND\n"
-                     . "Hình thức: $method_label\n"
-                     . "Mã GD: $txn_id\n"
-                     . "Thời gian: $paid_fmt";
+            $is_tenant_paying = ($user_id === $row["tenant_id"]);
+
+            if ($is_tenant_paying) {
+                // Khách thanh toán → thông báo cho chủ trọ
+                $title   = "💰 Thanh toán hóa đơn tháng $month_fmt";
+                $message = "$tenant_name đã thanh toán hóa đơn tháng $month_fmt\n"
+                         . "Phòng: $room\n"
+                         . "Số tiền: {$total_fmt} VND\n"
+                         . "Hình thức: $method_label\n"
+                         . "Mã GD: $txn_id\n"
+                         . "Thời gian: $paid_fmt";
+                $notify_user = $row["landlord_id"];
+            } else {
+                // Chủ trọ xác nhận → thông báo cho khách thuê
+                $title   = "✅ Hóa đơn tháng $month_fmt đã được xác nhận";
+                $message = "Hóa đơn tháng $month_fmt của bạn đã được chủ trọ xác nhận thanh toán.\n"
+                         . "Phòng: $room\n"
+                         . "Số tiền: {$total_fmt} VND\n"
+                         . "Hình thức: $method_label\n"
+                         . "Thời gian: $paid_fmt";
+                $notify_user = $row["tenant_id"];
+            }
 
             $ins = $conn->prepare(
                 "INSERT INTO notifications (user_id, title, message, type) VALUES (?, ?, ?, 'payment')"
             );
-            $ins->bind_param("sss", $row["landlord_id"], $title, $message);
+            $ins->bind_param("sss", $notify_user, $title, $message);
             $ins->execute();
             $ins->close();
         }

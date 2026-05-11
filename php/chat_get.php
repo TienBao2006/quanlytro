@@ -21,8 +21,16 @@ $chat_id = ($sender_id < $receiver_id)
     ? $sender_id . "_" . $receiver_id
     : $receiver_id . "_" . $sender_id;
 
+// Đánh dấu đã đọc: các tin nhắn mà receiver_id = sender_id (người đang xem) nhận từ receiver_id
+$markStmt = $conn->prepare(
+    "UPDATE messages SET is_read = 1 WHERE chat_id = ? AND receiver_id = ? AND is_read = 0"
+);
+$markStmt->bind_param("ss", $chat_id, $sender_id);
+$markStmt->execute();
+$markStmt->close();
+
 $stmt = $conn->prepare(
-    "SELECT id, sender_id, receiver_id, message, created_at
+    "SELECT id, sender_id, receiver_id, message, created_at, is_read
      FROM messages
      WHERE chat_id = ?
      ORDER BY created_at ASC"

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Test OTP</title>
+</head>
+
+<body>
+    <h3>Test gửi OTP qua Email</h3>
+    <input type="email" id="email" placeholder="Nhập email" style="padding:8px;width:300px">
+    <button onclick="sendOtp()">Gửi OTP</button>
+    <p id="result"></p>
+
+    <h3>Test xác thực OTP</h3>
+    <input type="text" id="otp" placeholder="Nhập mã OTP" style="padding:8px;width:300px">
+    <button onclick="verifyOtp()">Xác nhận</button>
+    <p id="result2"></p>
+
+    <script>
+        function sendOtp() {
+            const email = document.getElementById('email').value;
+            const fd = new FormData();
+            fd.append('email', email);
+            fetch('send_otp.php', { method: 'POST', body: fd })
+                .then(r => r.json())
+                .then(d => document.getElementById('result').innerText = JSON.stringify(d));
+        }
+        function verifyOtp() {
+            const email = document.getElementById('email').value;
+            const otp = document.getElementById('otp').value;
+            const fd = new FormData();
+            fd.append('email', email);
+            fd.append('otp', otp);
+            fetch('verify_otp.php', { method: 'POST', body: fd })
+                .then(r => r.json())
+                .then(d => document.getElementById('result2').innerText = JSON.stringify(d));
+        }
+    </script>
+</body>
+
+</html>

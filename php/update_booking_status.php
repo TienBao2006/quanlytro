@@ -11,9 +11,9 @@ if ($conn->connect_error) {
 $conn->set_charset("utf8mb4");
 
 $booking_id = intval($_POST['booking_id'] ?? 0);
-$new_status = $_POST['status'] ?? ''; // confirmed | rejected
+$new_status = $_POST['status'] ?? ''; // confirmed | rejected | pending
 
-if ($booking_id === 0 || !in_array($new_status, ['confirmed', 'rejected'])) {
+if ($booking_id === 0 || !in_array($new_status, ['confirmed', 'rejected', 'pending'])) {
     echo json_encode(["status" => "error", "message" => "Dữ liệu không hợp lệ"]);
     exit;
 }
@@ -48,6 +48,9 @@ if ($stmt->execute()) {
         if ($new_status === 'confirmed') {
             $ntitle = "✅ Đặt phòng được xác nhận";
             $nmsg   = "Yêu cầu đặt phòng \"$post_title\" của bạn đã được chủ trọ xác nhận.";
+        } elseif ($new_status === 'pending') {
+            $ntitle = "🔄 Xác nhận đặt phòng bị hủy";
+            $nmsg   = "Chủ trọ đã hủy xác nhận yêu cầu đặt phòng \"$post_title\". Yêu cầu của bạn đang chờ xử lý lại.";
         } else {
             $ntitle = "❌ Đặt phòng bị từ chối";
             $nmsg   = "Yêu cầu đặt phòng \"$post_title\" của bạn đã bị chủ trọ từ chối.";

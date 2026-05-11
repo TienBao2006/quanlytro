@@ -45,9 +45,11 @@ fun ProfileScreen(
     onBackClick: () -> Unit = {},
     onLogoutClick: () -> Unit = {},
     onExploreClick: () -> Unit = {},
+    onManageClick: () -> Unit = {},
     onChatListClick: () -> Unit = {},
     onMyContractClick: () -> Unit = {},
-    onMyInvoiceClick: () -> Unit = {}
+    onMyInvoiceClick: () -> Unit = {},
+    onSettingsClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
     var showEditDialog by remember { mutableStateOf(false) }
@@ -138,6 +140,7 @@ fun ProfileScreen(
                 userRole = userRole,
                 onExploreClick = onExploreClick,
                 onProfileClick = {},
+                onManageClick = onManageClick,
                 onChatListClick = onChatListClick
             )
         }
@@ -225,7 +228,7 @@ fun ProfileScreen(
 
             ProfileSection("HỆ THỐNG") {
                 ProfileMenuItem(Icons.Default.Settings, "Cài đặt", "Thông báo, bảo mật, ngôn ngữ",
-                    Color(0xFFF1F3F5), Color(0xFF495057))
+                    Color(0xFFF1F3F5), Color(0xFF495057), onSettingsClick)
             }
 
             Spacer(Modifier.height(24.dp))

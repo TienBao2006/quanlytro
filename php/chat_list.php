@@ -49,13 +49,24 @@ while ($row = $result->fetch_assoc()) {
     $other_avatar = $uRow ? ($uRow["avatar"] ?? "") : "";
     $uStmt->close();
 
+    // Đếm tin nhắn chưa đọc (người kia gửi cho mình)
+    $unreadStmt = $conn->prepare(
+        "SELECT COUNT(*) AS cnt FROM messages WHERE chat_id = ? AND receiver_id = ? AND is_read = 0"
+    );
+    $unreadStmt->bind_param("ss", $row["chat_id"], $user_id);
+    $unreadStmt->execute();
+    $unreadRow = $unreadStmt->get_result()->fetch_assoc();
+    $unread_count = (int)($unreadRow["cnt"] ?? 0);
+    $unreadStmt->close();
+
     $chats[] = [
         "chat_id"      => $row["chat_id"],
         "other_id"     => $other_id,
         "other_name"   => $other_name,
         "other_avatar" => $other_avatar,
         "last_message" => $row["last_message"],
-        "last_time"    => $row["last_time"]
+        "last_time"    => $row["last_time"],
+        "unread_count" => $unread_count
     ];
 }
 

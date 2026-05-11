@@ -147,7 +147,8 @@ fun BookingManageScreen(
                                 onConfirm = { updateStatus(booking.id, "confirmed") },
                                 onReject  = { updateStatus(booking.id, "rejected") },
                                 onCreateContract = { onCreateContract(booking) },
-                                onDelete = { deleteBooking(booking.id) }
+                                onDelete = { deleteBooking(booking.id) },
+                                onUnconfirm = { updateStatus(booking.id, "pending") }
                             )
                         }
                     }
@@ -163,10 +164,12 @@ fun BookingCard(
     onConfirm: () -> Unit,
     onReject: () -> Unit,
     onCreateContract: () -> Unit = {},
-    onDelete: () -> Unit = {}
+    onDelete: () -> Unit = {},
+    onUnconfirm: () -> Unit = {}
 ) {
     var showDetail by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showUnconfirmDialog by remember { mutableStateOf(false) }
 
     if (showDeleteDialog) {
         AlertDialog(
@@ -180,6 +183,22 @@ fun BookingCard(
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteDialog = false }) { Text("Hủy") }
+            }
+        )
+    }
+
+    if (showUnconfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showUnconfirmDialog = false },
+            title = { Text("Hủy xác nhận?") },
+            text = { Text("Yêu cầu của ${booking.full_name} sẽ chuyển về trạng thái chờ xác nhận.") },
+            confirmButton = {
+                TextButton(onClick = { showUnconfirmDialog = false; onUnconfirm() }) {
+                    Text("Hủy xác nhận", color = Color(0xFFF57F17), fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showUnconfirmDialog = false }) { Text("Đóng") }
             }
         )
     }
@@ -324,15 +343,31 @@ fun BookingCard(
                         Text("Đã tạo hợp đồng", fontWeight = FontWeight.Bold)
                     }
                 } else {
-                    Button(
-                        onClick = onCreateContract,
+                    Row(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF007BFF))
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Icon(Icons.Default.Description, null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("Tạo hợp đồng", fontWeight = FontWeight.Bold)
+                        OutlinedButton(
+                            onClick = { showUnconfirmDialog = true },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFF57F17)),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF57F17))
+                        ) {
+                            Icon(Icons.Default.Undo, null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Hủy XN", fontWeight = FontWeight.Bold)
+                        }
+                        Button(
+                            onClick = onCreateContract,
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF007BFF))
+                        ) {
+                            Icon(Icons.Default.Description, null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Tạo HĐ", fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }

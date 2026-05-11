@@ -37,7 +37,9 @@ fun LandlordScreen(
     onProfileClick: () -> Unit = {},
     onNotificationClick: () -> Unit = {},
     onNoticeClick: () -> Unit = {},
-    onTenantManageClick: () -> Unit = {}
+    onTenantManageClick: () -> Unit = {},
+    onChatListClick: () -> Unit = {},
+    onStatsClick: () -> Unit = {}
 ) {
     var bookings by remember { mutableStateOf<List<BookingItem>>(emptyList()) }
     var isLoadingBookings by remember { mutableStateOf(false) }
@@ -49,6 +51,12 @@ fun LandlordScreen(
     var emptyRooms by remember { mutableStateOf(0) }
     var activeContracts by remember { mutableStateOf(0) }
     var pendingCancelCount by remember { mutableStateOf(0) }
+
+    var currentRevenue by remember { mutableStateOf(0.0) }
+    var percentChange by remember { mutableStateOf(0.0) }
+    var currentMonth by remember { mutableStateOf("") }
+    var monthlyList by remember { mutableStateOf<List<MonthlyRevenue>>(emptyList()) }
+    var selectedMonthIndex by remember { mutableStateOf(0) } // 0 = tháng mới nhất
 
     fun loadUnreadCount() {
         RetrofitClient.instance.countNotifications(UserSession.uid)
@@ -89,6 +97,24 @@ fun LandlordScreen(
                     ?.count { it.status == "cancel_requested_by_tenant" } ?: 0
             }
             override fun onFailure(call: Call<ContractListResponse>, t: Throwable) {}
+        })
+        // Load doanh thu
+        RetrofitClient.instance.getRevenueStats(uid).enqueue(object : Callback<RevenueStatsResponse> {
+            override fun onResponse(call: Call<RevenueStatsResponse>, response: Response<RevenueStatsResponse>) {
+                response.body()?.let {
+                    monthlyList = it.monthly
+                    selectedMonthIndex = 0
+                    if (it.monthly.isNotEmpty()) {
+                        currentRevenue = it.monthly[0].revenue
+                        currentMonth   = it.monthly[0].month
+                    } else {
+                        currentRevenue = it.current_revenue
+                        currentMonth   = it.current_month
+                    }
+                    percentChange = it.percent_change
+                }
+            }
+            override fun onFailure(call: Call<RevenueStatsResponse>, t: Throwable) {}
         })
     }
 
@@ -181,7 +207,7 @@ fun LandlordScreen(
                 onExploreClick = onExploreClick,
                 onProfileClick = onProfileClick,
                 onManageClick = {},
-                onChatListClick = {}
+                onChatListClick = onChatListClick
             )
         }
     ) { innerPadding ->
@@ -191,7 +217,33 @@ fun LandlordScreen(
                 .padding(innerPadding)
                 .background(Color(0xFFF8F9FA))
         ) {
-            item { RevenueOverview() }
+            item { RevenueOverview(
+                currentMonth = currentMonth,
+                revenue = currentRevenue,
+                percentChange = percentChange,
+                canGoPrev = selectedMonthIndex < monthlyList.size - 1,
+                canGoNext = selectedMonthIndex > 0,
+                onPrev = {
+                    val next = selectedMonthIndex + 1
+                    if (next < monthlyList.size) {
+                        selectedMonthIndex = next
+                        currentMonth = monthlyList[next].month
+                        currentRevenue = monthlyList[next].revenue
+                        val prevRev = if (next + 1 < monthlyList.size) monthlyList[next + 1].revenue else 0.0
+                        percentChange = if (prevRev > 0) ((currentRevenue - prevRev) / prevRev * 100).let { Math.round(it * 10) / 10.0 } else 0.0
+                    }
+                },
+                onNext = {
+                    val prev = selectedMonthIndex - 1
+                    if (prev >= 0) {
+                        selectedMonthIndex = prev
+                        currentMonth = monthlyList[prev].month
+                        currentRevenue = monthlyList[prev].revenue
+                        val prevRev = if (selectedMonthIndex + 1 < monthlyList.size) monthlyList[selectedMonthIndex + 1].revenue else 0.0
+                        percentChange = if (prevRev > 0) ((currentRevenue - prevRev) / prevRev * 100).let { Math.round(it * 10) / 10.0 } else 0.0
+                    }
+                }
+            ) }
             item { StatsRow(totalRooms = totalRooms, emptyRooms = emptyRooms, tenants = activeContracts) }
             item {
                 Text(
@@ -201,55 +253,7 @@ fun LandlordScreen(
                     fontWeight = FontWeight.Bold
                 )
             }
-            item { ManagementGrid(onBookingManageClick = onBookingManageClick, onContractListClick = onContractListClick, onInvoiceClick = onInvoiceClick, onUtilityClick = onUtilityClick, onNoticeClick = onNoticeClick, onTenantManageClick = onTenantManageClick, pendingCount = bookings.count { it.status == "pending" }, pendingCancelCount = pendingCancelCount) }
-
-            // ── Yêu cầu đặt phòng ──────────────────────────────────────
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Yêu cầu đặt phòng", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                    val pendingCount = bookings.count { it.status == "pending" }
-                    if (pendingCount > 0) {
-                        Surface(
-                            color = Color(0xFFFF5722),
-                            shape = CircleShape
-                        ) {
-                            Text(
-                                "$pendingCount",
-                                color = Color.White,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
-                            )
-                        }
-                    }
-                }
-            }
-
-            if (isLoadingBookings) {
-                item {
-                    Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = Color(0xFF007BFF))
-                    }
-                }
-            } else if (bookings.isEmpty()) {
-                item {
-                    Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
-                        Text("Chưa có yêu cầu đặt phòng nào", color = Color.Gray, fontSize = 14.sp)
-                    }
-                }
-            } else {
-                items(bookings.size) { index ->
-                    BookingRequestItem(
-                        booking = bookings[index],
-                        onConfirm = { updateBooking(bookings[index].id, "confirmed") },
-                        onReject  = { updateBooking(bookings[index].id, "rejected") }
-                    )
-                }
-            }
+            item { ManagementGrid(onBookingManageClick = onBookingManageClick, onContractListClick = onContractListClick, onInvoiceClick = onInvoiceClick, onUtilityClick = onUtilityClick, onNoticeClick = onNoticeClick, onTenantManageClick = onTenantManageClick, onStatsClick = onStatsClick, pendingCount = bookings.count { it.status == "pending" }, pendingCancelCount = pendingCancelCount) }
 
             item { Spacer(modifier = Modifier.height(24.dp)) }
         }
@@ -257,25 +261,79 @@ fun LandlordScreen(
 }
 
 @Composable
-fun RevenueOverview() {
+fun RevenueOverview(
+    currentMonth: String = "",
+    revenue: Double = 0.0,
+    percentChange: Double = 0.0,
+    canGoPrev: Boolean = false,
+    canGoNext: Boolean = false,
+    onPrev: () -> Unit = {},
+    onNext: () -> Unit = {}
+) {
+    val monthLabel = if (currentMonth.length == 7) {
+        "tháng ${currentMonth.substring(5).trimStart('0')}"
+    } else "tháng này"
+
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp),
+        modifier = Modifier.fillMaxWidth().padding(16.dp),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFF0D1B34))
     ) {
         Column(modifier = Modifier.padding(24.dp)) {
-            Text("Doanh thu tháng 10", color = Color.LightGray, fontSize = 14.sp)
+            // Header với nút điều hướng
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = onPrev,
+                    enabled = canGoPrev,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        Icons.Default.ChevronLeft, null,
+                        tint = if (canGoPrev) Color.White else Color.White.copy(alpha = 0.3f),
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                Text("Doanh thu $monthLabel", color = Color.LightGray, fontSize = 14.sp)
+                IconButton(
+                    onClick = onNext,
+                    enabled = canGoNext,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        Icons.Default.ChevronRight, null,
+                        tint = if (canGoNext) Color.White else Color.White.copy(alpha = 0.3f),
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
             Spacer(modifier = Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.Bottom) {
-                Text("45.200.000", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+                Text(formatPrice(revenue), color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
                 Text(" VND", color = Color.White.copy(alpha = 0.7f), fontSize = 16.sp, modifier = Modifier.padding(bottom = 4.dp))
             }
             Spacer(modifier = Modifier.height(16.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.KeyboardArrowUp, contentDescription = null, tint = Color.Green, modifier = Modifier.size(16.dp))
-                Text(" +12% so với tháng trước", color = Color.Green, fontSize = 12.sp)
+            if (percentChange != 0.0) {
+                val isUp = percentChange > 0
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        if (isUp) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                        null,
+                        tint = if (isUp) Color.Green else Color(0xFFFF5252),
+                        modifier = Modifier.size(16.dp)
+                    )
+                    val sign = if (isUp) "+" else ""
+                    Text(
+                        " ${sign}${percentChange}% so với tháng trước",
+                        color = if (isUp) Color.Green else Color(0xFFFF5252),
+                        fontSize = 12.sp
+                    )
+                }
+            } else {
+                Text("Chưa có dữ liệu tháng trước", color = Color.Gray, fontSize = 12.sp)
             }
         }
     }
@@ -321,13 +379,14 @@ fun StatCard(label: String, value: String, bgColor: Color, textColor: Color, mod
 }
 
 @Composable
-fun ManagementGrid(onBookingManageClick: () -> Unit = {}, onContractListClick: () -> Unit = {}, onInvoiceClick: () -> Unit = {}, onUtilityClick: () -> Unit = {}, onNoticeClick: () -> Unit = {}, onTenantManageClick: () -> Unit = {}, pendingCount: Int = 0, pendingCancelCount: Int = 0) {
+fun ManagementGrid(onBookingManageClick: () -> Unit = {}, onContractListClick: () -> Unit = {}, onInvoiceClick: () -> Unit = {}, onUtilityClick: () -> Unit = {}, onNoticeClick: () -> Unit = {}, onTenantManageClick: () -> Unit = {}, onStatsClick: () -> Unit = {}, pendingCount: Int = 0, pendingCancelCount: Int = 0) {
     val items = listOf(
         ManagementAction("Điện & Nước", Icons.Default.FlashOn, Color(0xFFE1F5FE), Color(0xFF0288D1)),
         ManagementAction("Hóa đơn", Icons.Default.Receipt, Color(0xFFF3E5F5), Color(0xFF9C27B0)),
         ManagementAction("Khách thuê", Icons.Default.People, Color(0xFFE8F5E9), Color(0xFF4CAF50)),
         ManagementAction("Hợp đồng", Icons.Default.Description, Color(0xFFFFF3E0), Color(0xFFFF9800)),
-        ManagementAction("Thông báo", Icons.Default.Campaign, Color(0xFFFFEBEE), Color(0xFFF44336))
+        ManagementAction("Thông báo", Icons.Default.Campaign, Color(0xFFFFEBEE), Color(0xFFF44336)),
+        ManagementAction("Thống kê", Icons.Default.BarChart, Color(0xFFE8EAF6), Color(0xFF3F51B5))
     )
 
     Column(modifier = Modifier.padding(horizontal = 16.dp)) {
@@ -374,6 +433,7 @@ fun ManagementGrid(onBookingManageClick: () -> Unit = {}, onContractListClick: (
                         "Điện & Nước" -> onUtilityClick
                         "Thông báo"  -> onNoticeClick
                         "Khách thuê" -> onTenantManageClick
+                        "Thống kê"   -> onStatsClick
                         else -> ({})
                     }
                     val badge = if (item.title == "Hợp đồng" && pendingCancelCount > 0) pendingCancelCount else 0
